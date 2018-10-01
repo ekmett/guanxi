@@ -1,6 +1,6 @@
 {-# language GADTs, PolyKinds #-}
 
-module Cat
+module Aligned
   ( View(..)
   , Cons(..)
   , Uncons(..)
