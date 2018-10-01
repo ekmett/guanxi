@@ -33,6 +33,8 @@ library
     Aligned
     Unaligned
     Free
-    Logic.CPS
     Logic.Class
+    Logic.CPS
+    Logic.Fast
+    Logic.Naive
     Unified

@@ -1,4 +1,5 @@
 {-# language DeriveTraversable #-}
+{-# language TypeFamilies #-}
 
 module Unaligned
   ( View(..)
@@ -7,16 +8,21 @@ module Unaligned
   , Snoc(..)
   , Unsnoc(..)
   , Nil(..)
+  , Singleton(..)
   , Q(..)
   , Cat(..)
   , Rev(..)
   ) where
 
-import Prelude hiding (id,(.))
 import Control.Category
+import Control.Applicative.Backwards
 import Data.Bifunctor
 import Data.Bifoldable
 import Data.Bitraversable
+import Data.Foldable as Foldable
+import Data.Semigroup (Dual(..))
+import GHC.Exts
+import Prelude hiding (id,(.))
 
 --------------------------------------------------------------------------------
 -- * Interface
@@ -60,7 +66,13 @@ class Singleton t where
 --------------------------------------------------------------------------------
 
 newtype Rev f a = Rev { runRev :: f a }
-  deriving (Show, Functor, Foldable, Traversable)
+  deriving (Show, Functor)
+
+instance Foldable f => Foldable (Rev f) where
+  foldMap f = getDual . foldMap (Dual . f) . runRev
+
+instance Traversable f => Traversable (Rev f) where
+  traverse f (Rev t) = fmap Rev . forwards $ traverse (Backwards . f) t
 
 instance Semigroup (f a) => Semigroup (Rev f a) where
   Rev a <> Rev b = Rev (b <> a)
@@ -112,7 +124,25 @@ instance Singleton [] where
 --------------------------------------------------------------------------------
 
 data Q a = Q [a] (Rev [] a) [a]
-  deriving Show
+
+instance Show a => Show (Q a) where
+  showsPrec d = showsPrec d . Foldable.toList
+
+instance IsList (Q a) where
+  type Item (Q a) = a
+  fromList = foldr cons nil
+  fromListN _ = foldr cons nil
+  toList = Foldable.toList
+
+instance Functor Q where
+  fmap f (Q as bs cs) = Q (fmap f as) (fmap f bs) (undefined <$ cs)
+
+instance Foldable Q where
+  foldMap f (Q as bs _) = foldMap f as <> foldMap f bs
+
+instance Traversable Q where
+  traverse f (Q as bs cs) = (\as' bs' -> Q as' bs' $ undefined <$ cs)
+    <$> traverse f as <*> traverse f bs
 
 instance Nil Q where
   nil = Q nil nil nil
@@ -145,7 +175,7 @@ rotate _ _ _ = error "Q.rotate: invariant broken"
 --------------------------------------------------------------------------------
 
 data Cat a = E | C a (Q (Cat a))
-  deriving Show
+  deriving (Show, Functor, Foldable, Traversable)
 
 instance Semigroup (Cat a) where
 
@@ -155,6 +185,12 @@ instance Semigroup (Cat a) where
 
 instance Monoid (Cat a) where
   mempty = E
+
+instance IsList (Cat a) where
+  type Item (Cat a) = a
+  fromList = foldr cons nil
+  fromListN _ = foldr cons nil
+  toList = Foldable.toList
 
 link :: a -> Q (Cat a) -> Cat a -> Cat a
 link x xs ys = C x (snoc xs ys)
@@ -166,7 +202,7 @@ linkAll q = case uncons q of
     Empty -> c
     _ -> link a t (linkAll q')
   E :&: q' -> linkAll q' -- recursive case in case of empty queues, unused
-  Empty -> E 
+  Empty -> E
 
 instance Nil Cat where
   nil = E
