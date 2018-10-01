@@ -91,7 +91,14 @@ instance Singleton t => Singleton (Rev t) where
 
 data Thrist f a b where
   Nil :: Thrist f a a
-  Cons :: f b c -> Thrist f a b -> Thrist f a c
+  Cons :: f b c -> !(Thrist f a b) -> Thrist f a c
+
+instance Category (Thrist f) where
+  id = Nil
+  xs . Nil = xs
+  xs0 . ys0 = go xs0 ys0 where
+    go Nil ys = ys
+    go (Cons x xs) ys = Cons x (xs . ys)
 
 instance Nil Thrist where
   nil = Nil
@@ -122,6 +129,7 @@ instance Cons Q where
 instance Uncons Q where
   uncons (Q Nil (Rev Nil) _) = Empty
   uncons (Q (Cons x f) r s) = x :&: exec f r s
+  uncons _ = error "Q.uncons: invariants violated"
 
 instance Singleton Q where
   singleton a = Q (singleton a) nil nil
@@ -130,7 +138,7 @@ instance Snoc Q where
   snoc (Q f r s) a = exec f (snoc r a) s
 
 exec :: Thrist f b c -> Rev Thrist f a b -> Thrist f b x -> Q f a c
-exec xs ys (Cons h t) = Q xs ys t
+exec xs ys (Cons _ t) = Q xs ys t
 exec xs ys Nil        = Q xs' nil xs' where xs' = rotate xs ys nil
 
 rotate :: Thrist f c d -> Rev Thrist f b c -> Thrist f a b -> Thrist f a d
@@ -161,7 +169,7 @@ linkAll :: Q (Cat f) a b -> Cat f a b
 linkAll q = case uncons q of
   c@(C a t) :&: q' -> case uncons q' of
     Empty -> c
-    otherwise -> link a t (linkAll q')
+    _ -> link a t (linkAll q')
   E :&: q' -> linkAll q' -- recursive case in case of empty queues, unused
   Empty -> E 
 

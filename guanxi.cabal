@@ -1,0 +1,37 @@
+cabal-version: 2.2
+name:          guanxi
+category:      Logic
+version:       0
+license:       BSD-2-Clause OR Apache-2.0
+license-file:  LICENSE
+author:        Edward A. Kmett
+maintainer:    Edward A. Kmett <ekmett@gmail.com>
+stability:     provisional
+homepage:      http://github.com/ekmett/guanxi/
+bug-reports:   http://github.com/ekmett/guanxi/issues
+copyright:     Copyright (C) 2018 Edward A. Kmett
+synopsis:      Relational programming
+description:   Relational programming.
+build-type:    Simple
+
+extra-source-files:
+
+source-repository head
+  type: git
+  location: git://github.com/ekmett/guanxi.git
+
+library
+  build-depends:
+    base                >= 4   && < 5,
+    transformers        >= 0.5.5 && < 0.6,
+    mtl                 >= 2.2.2 && < 2.3
+
+  ghc-options: -Wall
+  default-language: Haskell2010
+
+  exposed-modules:
+    Cat
+    Free
+    Logic.CPS
+    Logic.Class
+    Unified

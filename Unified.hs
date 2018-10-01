@@ -17,7 +17,6 @@ import Data.Functor.Identity
 import Data.Functor.Product
 import Data.Functor.Compose
 import Data.Proxy
-import Data.Void
 import Free
 
 class Unified f where
@@ -39,10 +38,10 @@ instance Eq e => Unified ((,) e)
 instance Unified Identity
 
 -- using RwoR to force layer by layer
-instance Unified f => Unified (Free f) where
-  unified f l r = go (view l) (view r) where
+instance (Unified f, Functor f) => Unified (Free f) where
+  merge f l r = go (view l) (view r) where
     go (Pure a) (Pure b)   = pure <$> f a b
-    go (Free as) (Free bs) = free <$> unified (unified f) as bs
+    go (Free as) (Free bs) = free <$> merge (merge f) as bs
     go _ _ = empty
 
 class GUnified f where
@@ -68,7 +67,7 @@ instance (GUnified f, GUnified g) => GUnified (f :*: g) where
 instance (GUnified f, GUnified g) => GUnified (f :+: g) where
   gmerge f (L1 l) (L1 r) = L1 <$> gmerge f l r 
   gmerge f (R1 l) (R1 r) = R1 <$> gmerge f l r 
-  gmerge f _ _ = empty
+  gmerge _ _ _ = empty
 
 instance (Unified f, GUnified g) => GUnified (f :.: g) where
   gmerge f (Comp1 l) (Comp1 r) = Comp1 <$> merge (gmerge f) l r
