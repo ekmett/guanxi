@@ -30,7 +30,8 @@ library
   default-language: Haskell2010
 
   exposed-modules:
-    Aligned.Cat
+    Aligned
+    Unaligned
     Free
     Logic.CPS
     Logic.Class

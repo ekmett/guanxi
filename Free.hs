@@ -7,7 +7,7 @@ import Control.Monad (ap, liftM)
 import Control.Category
 import Prelude hiding ((.),id)
 
-import Cat
+import Aligned
 
 data Free f a where
   F :: FreeView f x -> Rev Cat (Kleisli (Free f)) x b -> Free f b

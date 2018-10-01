@@ -1,4 +1,4 @@
-{-# language GADTs, PolyKinds #-}
+{-# language DeriveTraversable #-}
 
 module Unaligned
   ( View(..)
@@ -14,14 +14,28 @@ module Unaligned
 
 import Prelude hiding (id,(.))
 import Control.Category
+import Data.Bifunctor
+import Data.Bifoldable
+import Data.Bitraversable
 
 --------------------------------------------------------------------------------
 -- * Interface
 --------------------------------------------------------------------------------
 
-data View a b where
-  (:&:) :: a -> b -> View a b
-  Empty :: View a b
+data View a b = Empty | a :&: b
+  deriving (Show, Functor, Foldable, Traversable)
+
+instance Bifunctor View where
+  bimap _ _ Empty = Empty
+  bimap f g (a :&: b) = f a :&: g b
+
+instance Bifoldable View where
+  bifoldMap _ _ Empty = mempty
+  bifoldMap f g (a :&: b) = f a <> g b
+
+instance Bitraversable View where
+  bitraverse _ _ Empty = pure Empty
+  bitraverse f g (a :&: b) = (:&:) <$> f a <*> g b
 
 class Cons t where
   cons :: a -> t a -> t a
@@ -46,6 +60,7 @@ class Singleton t where
 --------------------------------------------------------------------------------
 
 newtype Rev f a = Rev { runRev :: f a }
+  deriving (Show, Functor, Foldable, Traversable)
 
 instance Semigroup (f a) => Semigroup (Rev f a) where
   Rev a <> Rev b = Rev (b <> a)
@@ -96,8 +111,8 @@ instance Singleton [] where
 -- * Queues
 --------------------------------------------------------------------------------
 
-data Q a where
-  Q :: [a] -> Rev [] a -> [a] -> Q a
+data Q a = Q [a] (Rev [] a) [a]
+  deriving Show
 
 instance Nil Q where
   nil = Q nil nil nil
@@ -130,6 +145,7 @@ rotate _ _ _ = error "Q.rotate: invariant broken"
 --------------------------------------------------------------------------------
 
 data Cat a = E | C a (Q (Cat a))
+  deriving Show
 
 instance Semigroup (Cat a) where
 
