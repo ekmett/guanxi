@@ -10,7 +10,7 @@ module Unification where
 
 import Control.Monad
 import Data.IORef
-import Free
+import Freer
 import Unified
 
 class EqVar (v :: (* -> *) -> *) where
@@ -33,7 +33,7 @@ instance MonadUnify IOVar IO where
   writeVar v = writeIORef (runIOVar v) . Just
 
 unifyVar
-  :: (MonadUnify v m, Unified f, Traversable f)
+  :: (MonadUnify v m, Unified f)
   => v f -> Free f (v f) -> m (Free f (v f))
 unifyVar a x = readVar a >>= \case
   Nothing -> do
@@ -45,14 +45,14 @@ unifyVar a x = readVar a >>= \case
     y' <$ writeVar a y'
 
 unify
-  :: forall m v f. (MonadUnify v m, Unified f, Traversable f)
+  :: forall m v f. (MonadUnify v m, Unified f)
   => Free f (v f) -> Free f (v f) -> m (Free f (v f))
 unify l r = go l (view l) (view r) where
   go :: Free f (v f) -> FreeView f (v f) -> FreeView f (v f) -> m (Free f (v f))
   go t (Pure v) (Pure u) | eqVar v u = return t
   go _ (Pure a) y = unifyVar a (unview y)
   go t _ (Pure a) = unifyVar a t
-  go _ (Free xs) (Free ys) = free <$> merge unify xs ys
+  go _ (Free xs kx) (Free ys ky) = free <$> merge (\x y -> unify (kx x) (ky y)) xs ys
 
 -- | zonk/walk-flatten
 zonk

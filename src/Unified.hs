@@ -17,9 +17,9 @@ import Data.Functor.Identity
 import Data.Functor.Product
 import Data.Functor.Compose
 import Data.Proxy
-import Free
+import Freer
 
-class Unified f where
+class Traversable f => Unified f where
   merge :: Alternative t => (a -> b -> t c) -> f a -> f b -> t (f c)
   default merge :: (Generic1 f, GUnified (Rep1 f), Alternative t)
                 => (a -> b -> t c) -> f a -> f b -> t (f c)
@@ -38,10 +38,10 @@ instance Eq e => Unified ((,) e)
 instance Unified Identity
 
 -- using RwoR to force layer by layer
-instance (Unified f, Functor f) => Unified (Free f) where
+instance Unified f => Unified (Free f) where
   merge f l r = go (view l) (view r) where
     go (Pure a) (Pure b)   = pure <$> f a b
-    go (Free as) (Free bs) = free <$> merge (merge f) as bs
+    go (Free as ka) (Free bs kb) = free <$> merge (\a b -> merge f (ka a) (kb b)) as bs
     go _ _ = empty
 
 class GUnified f where
