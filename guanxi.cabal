@@ -3,7 +3,7 @@ name:          guanxi
 category:      Logic
 version:       0
 license:       BSD-2-Clause OR Apache-2.0
-license-file:  LICENSE
+license-file:  LICENSE.md
 author:        Edward A. Kmett
 maintainer:    Edward A. Kmett <ekmett@gmail.com>
 stability:     provisional

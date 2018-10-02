@@ -115,9 +115,9 @@ observeT m = view m >>= go where
 observeManyT :: Monad m => Int -> LogicT m a -> m [a]
 observeManyT n m
   | n <= 0 = return []
-  | n == 1 = view m >>= \case
+  | otherwise = view m >>= \case
     Empty -> return []
-    a :&: m -> (a:) <$> observeManyT (n-1) m
+    a :&: m1 -> (a:) <$> observeManyT (n-1) m1
 
 observeAllT :: Monad m => LogicT m a -> m [a]
 observeAllT m = view m >>= go where
