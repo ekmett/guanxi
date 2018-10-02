@@ -33,11 +33,13 @@ library
 
   exposed-modules:
     Aligned
-    Unaligned
+    Env
     Free
+    Freer
     Logic.Class
     Logic.CPS
     Logic.Naive
     Logic.Reflection
-    Skew
+    Unaligned
     Unified
+    Unification
