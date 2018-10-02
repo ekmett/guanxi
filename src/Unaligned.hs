@@ -174,7 +174,7 @@ rotate _ _ _ = error "Q.rotate: invariant broken"
 -- * Catenable lists
 --------------------------------------------------------------------------------
 
-data Cat a = E | C a (Q (Cat a))
+data Cat a = E | C a !(Q (Cat a))
   deriving (Show, Functor, Foldable, Traversable)
 
 instance Semigroup (Cat a) where

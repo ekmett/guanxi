@@ -118,7 +118,7 @@ instance Singleton Thrist where
 --------------------------------------------------------------------------------
 
 data Q f a b where
-  Q :: Thrist f b c -> Rev Thrist f a b -> Thrist f b x -> Q f a c
+  Q :: !(Thrist f b c) -> !(Rev Thrist f a b) -> !(Thrist f b x) -> Q f a c
 
 instance Nil Q where
   nil = Q nil nil nil
@@ -152,7 +152,7 @@ rotate _ _ _ = error "Q.rotate: invariant broken"
 
 data Cat f a b where
   E :: Cat f a a 
-  C :: f b c -> Q (Cat f) a b -> Cat f a c
+  C :: f b c -> !(Q (Cat f) a b) -> Cat f a c
 
 instance Category (Cat f) where
   id = E
