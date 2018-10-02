@@ -16,7 +16,6 @@ module Env
 import Control.Lens (fusing, Lens')
 import Data.Bits
 import Data.Functor
-import Data.Semigroup
 import Prelude hiding (lookup)
 import Unaligned
 
@@ -40,17 +39,31 @@ bin_ Tip Tip = Tip
 bin_ l r = Bin_ l r
 {-# inline conlike bin_ #-}
 
+smear :: Int -> Int
+smear i0 = i5 .|. unsafeShiftR i5 32 where
+      i1 = i0 .|. unsafeShiftR i0 1
+      i2 = i1 .|. unsafeShiftR i1 2
+      i3 = i2 .|. unsafeShiftR i2 4
+      i4 = i3 .|. unsafeShiftR i3 8
+      i5 = i4 .|. unsafeShiftR i4 16
+
 padSpine :: Int -> Spine a -> Spine a
 padSpine 0 xs = xs
+padSpine i Nil = padSpine' i (smear i) Nil
+padSpine i xs@(Cons j x Nil)
+  | i >= j+1  = padSpine (i-j+1) $ Cons (j+j+1) (bin_ Tip x) Nil
+  | otherwise = padSpine' i (unsafeShiftR j 1) xs
 padSpine i xs@(Cons j x ys@(Cons k y zs))
   -- climb up and inflate heads as needed
-  | j == k   = padSpine (i-1)   $ Cons (j+k+1) (bin_ x y) zs
-  | i >= j+1 = padSpine (i-j+1) $ Cons (j+j+1) (bin_ Tip x) ys
-  | otherwise = go i (unsafeShiftR j 1) xs
-  where
-    go i j ws
-      | i >= j = go (i - j) j $ Cons j Tip ws
-      | otherwise = go i (unsafeShiftR j 1) ws
+  | j == k    = padSpine (i-1)   $ Cons (j+k+1) (bin_ x y) zs
+  | i >= j+1  = padSpine (i-j+1) $ Cons (j+j+1) (bin_ Tip x) ys
+  | otherwise = padSpine' i (unsafeShiftR j 1) xs
+
+padSpine' :: Int -> Int -> Spine a -> Spine a
+padSpine' 0 _ ws = ws
+padSpine' i j ws
+  | i >= j = padSpine' (i - j) j $ Cons j Tip ws
+  | otherwise = padSpine' i (unsafeShiftR j 1) ws
 
 instance Nil Spine where
   nil = Nil
