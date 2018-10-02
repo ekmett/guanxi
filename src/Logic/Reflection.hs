@@ -2,7 +2,7 @@
 {-# language DeriveTraversable #-}
 {-# language ViewPatterns #-}
 
-module Logic.Fast where
+module Logic.Reflection where
 
 import Control.Monad
 import Control.Monad.Trans
@@ -58,9 +58,9 @@ instance MonadTrans LogicT where
 instance MonadIO m => MonadIO (LogicT m) where
     liftIO = lift . liftIO
 
-simple :: L m a -> Maybe (a, LogicT m a)
-simple Nil = Nothing
-simple (Cons a as) = Just (a, as)
+simple :: L m a -> View a (LogicT m a)
+simple Nil = Empty
+simple (Cons a as) = a :&: as
 
 instance Monad m => MonadLogic (LogicT m) where
   msplit (view -> m) = lift (simple <$> m)

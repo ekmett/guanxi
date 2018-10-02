@@ -18,6 +18,7 @@ import Data.Functor.Identity
 import Data.Foldable (fold)
 
 import Logic.Class
+import Unaligned
 
 newtype LogicT m a = LogicT
   { runLogicT :: forall r. (a -> m r -> m r) -> m r -> m r
@@ -61,15 +62,15 @@ instance MonadIO m => MonadIO (LogicT m) where
   liftIO = lift . liftIO
 
 instance Monad m => MonadLogic (LogicT m) where
-  msplit m = lift $ runLogicT m ssk (return Nothing) where
-    ssk a fk = return $ Just (a, (lift fk >>= reflect))
+  msplit m = lift $ runLogicT m ssk (return Empty) where
+    ssk a fk = return $ a :&: (lift fk >>= reflect)
 
 instance (Monad m, Foldable m) => Foldable (LogicT m) where
   foldMap f m = fold $ runLogicT m (liftM . mappend . f) (return mempty)
 
 instance Traversable (LogicT Identity) where
-  traverse g l = runLogic l (\a ft -> cons <$> g a <*> ft) (pure mzero) where
-    cons a l' = return a `mplus` l'
+  traverse g l = runLogic l (\a ft -> c <$> g a <*> ft) (pure mzero) where
+    c a l' = return a `mplus` l'
 
 instance MonadReader r m => MonadReader r (LogicT m) where
   ask = lift ask
@@ -105,5 +106,5 @@ observeManyT n m
   | n <= 0 = return []
   | n == 1 = runLogicT m (\a _ -> return [a]) (return [])
   | otherwise = runLogicT (msplit m) sk (return []) where
-    sk Nothing _ = return []
-    sk (Just (a, m')) _ = (a:) `liftM` observeManyT (n-1) m'
+    sk Empty _ = return []
+    sk (a :&: m') _ = (a:) `liftM` observeManyT (n-1) m'

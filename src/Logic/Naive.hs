@@ -8,6 +8,7 @@ import Control.Monad
 import Control.Monad.Trans
 
 import Logic.Class
+import Unaligned
 
 data L m a = Nil | Cons a (LogicT m a)
   deriving (Functor, Foldable, Traversable)
@@ -40,9 +41,9 @@ instance Monad m => MonadPlus (LogicT m) where
 instance MonadTrans LogicT where
   lift m = LogicT (m >>= single)
 
-simple :: L m a -> Maybe (a, LogicT m a)
-simple Nil = Nothing
-simple (Cons a as) = Just (a, as)
+simple :: L m a -> View a (LogicT m a)
+simple Nil = Empty
+simple (Cons a as) = a :&: as
 
 instance Monad m => MonadLogic (LogicT m) where
   msplit (LogicT m) = lift (simple <$> m)

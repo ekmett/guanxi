@@ -8,6 +8,7 @@
 
 module Logic.Class where
 
+import Control.Applicative
 import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.State.Strict as Strict
@@ -15,6 +16,7 @@ import Control.Monad.State.Lazy as Lazy
 import Control.Monad.Reader
 import Control.Monad.Writer.Strict as Strict
 import Control.Monad.Writer.Lazy as Lazy
+import Unaligned
 
 class MonadPlus m => MonadLogic m where
   -- |
@@ -22,16 +24,20 @@ class MonadPlus m => MonadLogic m where
   -- msplit mzero                == return Nothing
   -- msplit (return a `mplus` m) == return (Just (a, m))
   -- @
-  msplit :: m a -> m (Maybe (a, m a)) 
+  msplit :: m a -> m (View a (m a)) 
   
   -- | fair disjunction
   interleave :: m a -> m a -> m a
-  interleave m1 m2 = msplit m1 >>= maybe m2 (\(a, m1') -> return a `mplus` interleave m2 m1')
+  interleave m1 m2 = msplit m1 >>= \case
+    Empty -> m2
+    a :&: m1' -> return a `mplus` interleave m2 m1'
 
   -- | fair conjunction
   (>>-) :: m a -> (a -> m b) -> m b
   m >>- f = do
-    (a, m') <- maybe mzero return =<< msplit m
+    (a, m') <- msplit m >>= \case
+      Empty -> mzero
+      a :&: m' -> return (a, m')
     interleave (f a) (m' >>- f)
 
   -- |
@@ -40,29 +46,31 @@ class MonadPlus m => MonadLogic m where
   -- ifte mzero th el                == el
   -- ifte (return a `mplus` m) th el == th a `mplus` (m >>= th)
   -- @
-  ifte       :: m a -> (a -> m b) -> m b -> m b
-  ifte t th el = msplit t >>= maybe el (\(a,m) -> th a `mplus` (m >>= th))
+  ifte :: m a -> (a -> m b) -> m b -> m b
+  ifte t th el = msplit t >>= \case
+    Empty -> el 
+    a :&: m -> th a <|> (m >>= th)
 
   -- | pruning
-  once       :: m a -> m a
+  once :: m a -> m a
   once m = do
-    b <- msplit m
-    (a, _) <- maybe mzero return b
-    return a
+    msplit m >>= \case
+      Empty   -> empty
+      a :&: _ -> pure a
 
 instance MonadLogic [] where
-  msplit []     = return Nothing
-  msplit (x:xs) = return $ Just (x, xs)
+  msplit []     = return Empty
+  msplit (x:xs) = return $ x :&: xs
 
 instance MonadLogic m => MonadLogic (ReaderT e m) where
   msplit rm = ReaderT $ \e -> msplit (runReaderT rm e) >>= \case
-    Nothing -> return Nothing
-    Just (a, m) -> return (Just (a, lift m))
+    Empty -> return Empty
+    a :&: m -> return (a :&: lift m)
 
 instance MonadLogic m => MonadLogic (Strict.StateT s m) where
   msplit sm = Strict.StateT $ \s -> msplit (Strict.runStateT sm s) >>= \case
-    Nothing          -> return (Nothing, s)
-    Just ((a,s'), m) -> return (Just (a, Strict.StateT (\_ -> m)), s')
+    Empty -> return (Empty, s)
+    (a,s') :&: m -> return (a :&: Strict.StateT (\_ -> m), s')
 
   interleave ma mb = Strict.StateT $ \s ->
     Strict.runStateT ma s `interleave` Strict.runStateT mb s
@@ -79,8 +87,8 @@ instance MonadLogic m => MonadLogic (Strict.StateT s m) where
 
 instance MonadLogic m => MonadLogic (Lazy.StateT s m) where
   msplit sm = Lazy.StateT $ \s -> msplit (Lazy.runStateT sm s) >>= \case
-    Nothing -> return (Nothing, s)
-    Just ((a,s'), m) -> return (Just (a, Lazy.StateT (\_ -> m)), s')
+    Empty -> return (Empty , s)
+    (a,s') :&: m -> return (a :&: Lazy.StateT (\_ -> m), s')
 
   interleave ma mb = Lazy.StateT $ \s -> Lazy.runStateT ma s `interleave` Lazy.runStateT mb s
 
@@ -95,8 +103,8 @@ instance MonadLogic m => MonadLogic (Lazy.StateT s m) where
 
 instance (MonadLogic m, Monoid w) => MonadLogic (Strict.WriterT w m) where
   msplit wm = Strict.WriterT $ msplit (Strict.runWriterT wm) >>= \case
-    Nothing -> return (Nothing, mempty)
-    Just ((a,w), m) -> return (Just (a, Strict.WriterT m), w)
+    Empty -> return (Empty, mempty)
+    (a,w) :&: m -> return (a :&: Strict.WriterT m, w)
 
   interleave ma mb = Strict.WriterT $
     Strict.runWriterT ma `interleave` Strict.runWriterT mb
@@ -113,8 +121,8 @@ instance (MonadLogic m, Monoid w) => MonadLogic (Strict.WriterT w m) where
 
 instance (MonadLogic m, Monoid w) => MonadLogic (Lazy.WriterT w m) where
   msplit wm = Lazy.WriterT $ msplit (Lazy.runWriterT wm) >>= \case
-    Nothing -> return (Nothing, mempty)
-    Just ((a,w), m) -> return (Just (a, Lazy.WriterT m), w)
+    Empty -> return (Empty , mempty)
+    (a,w) :&: m -> return (a :&: Lazy.WriterT m, w)
 
   interleave ma mb = Lazy.WriterT $
     Lazy.runWriterT ma `interleave` Lazy.runWriterT mb
@@ -133,9 +141,9 @@ instance (MonadLogic m, Monoid w) => MonadLogic (Lazy.WriterT w m) where
 -- @
 -- msplit >=> reflect == m
 -- @
-reflect :: MonadLogic m => Maybe (a, m a) -> m a
-reflect Nothing = mzero
-reflect (Just (a, m)) = return a `mplus` m
+reflect :: MonadLogic m => View a (m a) -> m a
+reflect Empty = empty
+reflect (a :&: m) = return a `mplus` m
 
 lnot :: MonadLogic m => m a -> m ()
 lnot m = ifte (once m) (const mzero) (return ())
