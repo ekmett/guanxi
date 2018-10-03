@@ -4,7 +4,6 @@
 {-# language FlexibleInstances #-}
 {-# language UndecidableInstances #-}
 {-# language MultiParamTypeClasses #-}
-{-# language LambdaCase #-}
 
 module Logic.CPS where
 
@@ -66,7 +65,7 @@ instance Monad m => MonadLogic (LogicT m) where
     ssk a fk = return $ a :&: (lift fk >>= reflect)
 
 instance (Monad m, Foldable m) => Foldable (LogicT m) where
-  foldMap f m = fold $ runLogicT m (liftM . mappend . f) (return mempty)
+  foldMap f m = fold $ runLogicT m (fmap . mappend . f) (return mempty)
 
 instance Traversable (LogicT Identity) where
   traverse g l = runLogic l (\a ft -> c <$> g a <*> ft) (pure mzero) where
@@ -99,7 +98,7 @@ observeT :: Monad m => LogicT m a -> m a
 observeT lt = runLogicT lt (const . return) (fail "No answer.")
 
 observeAllT :: Monad m => LogicT m a -> m [a]
-observeAllT m = runLogicT m (liftM . (:)) (return [])
+observeAllT m = runLogicT m (fmap . (:)) (return [])
 
 observeManyT :: Monad m => Int -> LogicT m a -> m [a]
 observeManyT n m

@@ -1,5 +1,4 @@
 {-# language GADTs #-}
-{-# language DeriveTraversable #-}
 {-# language ExistentialQuantification #-}
 
 module Freer where

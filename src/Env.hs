@@ -161,10 +161,10 @@ varTree i j f Tip = tweak i j <$> f Nothing
 varTree i j f (Bin a l r)
   | i == 0    = (\ma -> bin ma l r) <$> f (Just a)
   | i <= j'   = (\l' -> Bin a l' r) <$> varTree i j' f l
-  | otherwise = (\r' -> Bin a l r') <$> varTree (i-j'-1) j' f r
+  | otherwise = Bin a l <$> varTree (i-j'-1) j' f r
   where j' = unsafeShiftR j 1
 varTree i j f (Bin_ l r)
   | i == 0    = (\ma -> bin ma l r) <$> f Nothing
-  | i <= j'   = (\l' -> bin_ l' r) <$> varTree i j' f l
-  | otherwise = (\r' -> bin_ l r') <$> varTree (i-j'-1) j' f r
+  | i <= j'   = (`bin_` r) <$> varTree i j' f l
+  | otherwise = bin_ l <$> varTree (i-j'-1) j' f r
   where j' = unsafeShiftR j 1

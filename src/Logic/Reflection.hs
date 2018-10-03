@@ -1,6 +1,4 @@
 {-# language LambdaCase #-}
-{-# language DeriveTraversable #-}
-{-# language ViewPatterns #-}
 {-# language TypeFamilies #-}
 
 module Logic.Reflection

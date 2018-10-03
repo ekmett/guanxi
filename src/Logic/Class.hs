@@ -1,6 +1,5 @@
 {-# language RankNTypes #-}
 {-# language PatternSynonyms #-}
-{-# language ViewPatterns #-}
 {-# language FlexibleInstances #-}
 {-# language UndecidableInstances #-}
 {-# language MultiParamTypeClasses #-}
@@ -53,7 +52,7 @@ class MonadPlus m => MonadLogic m where
 
   -- | pruning
   once :: m a -> m a
-  once m = do
+  once m =
     msplit m >>= \case
       Empty   -> empty
       a :&: _ -> pure a
@@ -70,7 +69,7 @@ instance MonadLogic m => MonadLogic (ReaderT e m) where
 instance MonadLogic m => MonadLogic (Strict.StateT s m) where
   msplit sm = Strict.StateT $ \s -> msplit (Strict.runStateT sm s) >>= \case
     Empty -> return (Empty, s)
-    (a,s') :&: m -> return (a :&: Strict.StateT (\_ -> m), s')
+    (a,s') :&: m -> return (a :&: Strict.StateT (const m), s')
 
   interleave ma mb = Strict.StateT $ \s ->
     Strict.runStateT ma s `interleave` Strict.runStateT mb s
@@ -88,7 +87,7 @@ instance MonadLogic m => MonadLogic (Strict.StateT s m) where
 instance MonadLogic m => MonadLogic (Lazy.StateT s m) where
   msplit sm = Lazy.StateT $ \s -> msplit (Lazy.runStateT sm s) >>= \case
     Empty -> return (Empty , s)
-    (a,s') :&: m -> return (a :&: Lazy.StateT (\_ -> m), s')
+    (a,s') :&: m -> return (a :&: Lazy.StateT (const m), s')
 
   interleave ma mb = Lazy.StateT $ \s -> Lazy.runStateT ma s `interleave` Lazy.runStateT mb s
 

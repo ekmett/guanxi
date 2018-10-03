@@ -1,4 +1,3 @@
-{-# language DeriveTraversable #-}
 {-# language LambdaCase #-}
 
 module Logic.Naive where
