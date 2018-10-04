@@ -23,6 +23,8 @@ source-repository head
 library
   build-depends:
     base                >= 4   && < 5,
+    containers,
+    fingertree,
     lens,
     transformers        >= 0.5.5 && < 0.6,
     mtl                 >= 2.2.2 && < 2.3
@@ -33,13 +35,13 @@ library
 
   exposed-modules:
     Aligned
-    Env
     Free
     Freer
     Logic.Class
     Logic.CPS
     Logic.Naive
     Logic.Reflection
+    Skew
     Unaligned
     Unified
     Unification

@@ -1,0 +1,27 @@
+* Is there an update monad story?
+  * Can I use it to recycle the right hand sides of (<*>)'s in modified contexts
+  * A computation would return the set of environment variables read and written to
+ 
+* How to do garbage collection on environments?
+  * Seems to need a deep embedding
+  * Is this even relevant with a logict style search
+
+* Can we use propagators to model constraints?
+  * Do we replace unification variables with just having join semilattice?
+  * Better all-different constraints via the Hall Marriage problem
+  * Using discrimination for things like Mehlhorn & Thiel to get more linear
+    all-diffable things
+
+* SAT solving
+  * Conflict directed clauses should be able to promoted to be used across 'worlds'
+    so long as the latest clause that contributed a unit propagation or contradiction
+    is consistent across both worlds.
+
+* Reflection without remorse
+  * Can it remove some of the performance difference between triangular and idempotent substitutions?
+  * Can it fix up some of the hidden costs of LogicT?
+
+* How to nicely use typed environments?
+  * Vault? wants a nice unique variable supply?
+      concurrent-supply
+

@@ -1,170 +1,186 @@
-{-# language DeriveTraversable #-}
-{-# language RankNTypes #-}
-{-# language LambdaCase #-}
+module Env where
 
--- | Unsafe environment operations
-module Env
-  ( Env(..)
-  , var, var'
-  , lookup
-  , Nil(..)
-  , Cons(..)
-  , Cons_(..)
-  , allocate
-  ) where
+import Data.Set -- HashSet?
+import Data.FingerTree
+import SkewMaybe
 
-import Control.Lens (fusing, Lens')
-import Data.Bits
-import Data.Functor
-import Prelude hiding (lookup)
-import Unaligned
+-- version # since, ref count, monoidal summary
+data LogEntry a = LogEntry
+  { since, refCount :: {-# unpack #-} !Int
+  , contents :: a
+  } deriving Show
 
-data Tree a
-  = Bin a !(Tree a) !(Tree a)
-  | Bin_ !(Tree a) !(Tree a)
-  | Tip
-  deriving (Show, Foldable, Functor, Traversable)
+instance Monoid a => Measured (LogEntry a) (LogEntry a) where
+  measure = id
 
-data Spine a = Cons !Int !(Tree a) !(Spine a) | Nil
-  deriving (Show, Foldable, Functor, Traversable)
+instance Monoid a => Monoid (LogEntry a) where
+  mempty = LogEntry 0 0 mempty
+  mappend (LogEntry i c a) (LogEntry j d b) = LogEntry (max i j) (c + d) (a <> b)
 
-bin :: Maybe a -> Tree a -> Tree a -> Tree a
-bin Nothing Tip Tip = Tip
-bin Nothing l r = Bin_ l r
-bin (Just a) l r = Bin a l r
-{-# inline conlike bin #-}
+-- the historical log, the current version number, a reference count and a value 
+-- the 'since' for the entry we're building here would be (current - ref count)
+data Log a = Log
+  { logTree               :: !(FingerTree (LogEntry a) (LogEntry a))
+  , logSince, logRefCount :: {-# UNPACK #-} !Int
+  , logChanges            :: !(Maybe a) 
+  } deriving Show
 
-bin_ :: Tree a -> Tree a -> Tree a
-bin_ Tip Tip = Tip
-bin_ l r = Bin_ l r
-{-# inline conlike bin_ #-}
+makeClassy ''Log
 
-smear :: Int -> Int
-smear i0 = i5 .|. unsafeShiftR i5 32 where
-      i1 = i0 .|. unsafeShiftR i0 1
-      i2 = i1 .|. unsafeShiftR i1 2
-      i3 = i2 .|. unsafeShiftR i2 4
-      i4 = i3 .|. unsafeShiftR i3 8
-      i5 = i4 .|. unsafeShiftR i4 16
+-- | Argument tracks if we're persistent or not. If persistent then 'oldCursors' can start at the beginning
+-- otherwise we won't collect history beyond what is needed to support active cursors.
+newLog :: Monoid a => Bool -> Log a
+newLog p = LogState mempty 0 (if p then 1 else 0) Nothing
 
-padSpine :: Int -> Spine a -> Spine a
-padSpine 0 xs = xs
-padSpine i Nil = padSpine' i (smear i) Nil
-padSpine i xs@(Cons j x Nil)
-  | i >= j+1  = padSpine (i-j+1) $ Cons (j+j+1) (bin_ Tip x) Nil
-  | otherwise = padSpine' i (unsafeShiftR j 1) xs
-padSpine i xs@(Cons j x ys@(Cons k y zs))
-  -- climb up and inflate heads as needed
-  | j == k    = padSpine (i-1)   $ Cons (j+k+1) (bin_ x y) zs
-  | i >= j+1  = padSpine (i-j+1) $ Cons (j+j+1) (bin_ Tip x) ys
-  | otherwise = padSpine' i (unsafeShiftR j 1) xs
+record :: Monoid a => a -> Log a -> Log a
+record a ls@(LogState t v c m)
+  | F.null t, c == 0 = ls -- nobody is watching
+  | otherwise = LogState t v c $ Just $ maybe a (`mappend` a) m
 
-padSpine' :: Int -> Int -> Spine a -> Spine a
-padSpine' 0 _ ws = ws
-padSpine' i j ws
-  | i >= j = padSpine' (i - j) j $ Cons j Tip ws
-  | otherwise = padSpine' i (unsafeShiftR j 1) ws
+-- | Get a snapshot of the # of cursors outstanding
+cursors :: Monoid a => Log a -> Int
+cursors (LogState t _ c _) = refCount (measure t) + c
+    
+-- * Utilities
 
-instance Nil Spine where
-  nil = Nil
-  {-# inline conlike nil #-}
+watchNew :: Monoid a => FingerTree (LogEntry a) (LogEntry a) -> Int -> Maybe a -> State Int (Log a)
+watchNew t c m = state $ \v -> case m of
+  Nothing -> (Log t v (c+1) Nothing, v)
+  Just a  -> (Log (t |> LogEntry v c a) v' 1 Nothing, v') where !v' = v + 1
 
-instance Cons Spine where
-  cons a (Cons i x (Cons j y zs)) | i == j = Cons (i+j+1) (Bin a x y) zs
-  cons a xs = Cons 1 (Bin a Tip Tip) xs
-  {-# inline conlike cons #-}
+-- clone the oldest version in the log
+watchOld :: Monoid a => FingerTree (LogEntry a) (LogEntry a) -> Int -> Maybe a -> State Int (Log a, Int)
+watchOld t c m = state $ \v -> case viewl t of
+  EmptyL                 -> (LogState t v (c+1) m, v)
+  LogEntry ov oc a :< t' -> (LogState (LogEntry ov (oc+1) a <| t') v c m, ov)
 
-class Cons_ t where
-  cons_ :: t a -> t a
+record :: Semigroup c => Log c -> c -> Log c
+record l c = l & changes <>~ Just c
 
-instance Cons_ Spine where
-  cons_ (Cons i x (Cons j y zs)) | i == j = Cons (i+j+1) (bin_ x y) zs
-  cons_ xs = Cons 1 Tip xs
-  {-# inline conlike cons_ #-}
+type Id = Int
 
-data Env a = Env {-# unpack #-} !Int {-# unpack #-} !Int !(Spine a)
-  deriving Show
+-- a commutative monoid a with an inflationary action on an ordered set b
+-- with the filtered deltas described by c
+class (Monoid a, Monoid c) => ConjoinedSemilattice a b c | a -> b c where
+  bottom :: b
+  default bottom :: (a ~ b) => b
+  bottom = mempty
 
-instance Nil Env where
-  nil = Env 0 0 nil
-  {-# inline conlike nil #-}
+  act :: a -> b -> (Bool, b, c) -- tells me if it updated and what to pass to propagators
+  default act :: (a ~ b, b ~ c) => a -> b -> (Bool, b, c)
+  act a b = (c > b, c, c) where c = mappend a b
 
-instance Cons Env where
-  cons a (Env i j xs) = Env (i+1) (i+1) (cons a (padSpine (i-j) xs))
-  {-# inline conlike cons #-}
+newtype PropagatorId = PropagatorId Int
+newtype CellId = CellId Int
 
-instance Cons_ Env where
-  cons_ (Env i j xs) = Env (i+1) j xs
-  {-# inline conlike cons_ #-}
+data Propagator m where
+  Propagator :: (Id -> m (Set PropagatorId)) -> Set CellId -> Propagator m
 
-allocate :: Int -> Env a -> Env a
-allocate i (Env j k xs) = Env (j+i) k xs
+data Cell where
+  Cell :: (Typeable a, ConjoinedSemilattice a b c) => 
+     { cellValue :: b
+     , cellLog   :: Log c 
+     , cellPropagators :: Set PropagatorId
+     } -> Cell
 
-lookup :: Int -> Env a -> Maybe a
-lookup i (Env j k xs)
-  | i > j     = error "variable impossibly new"
-  | i > k     = Nothing
-  | otherwise = lookupSpine (k - i - 1) xs
+-- this backtracks across threads
+newtype Env m = Env
+  { envCells       :: !(Skew Cell) -- this requires cells to know their update strategy, i can't stub
+  , envPropagators :: !(Skew (Propagator m))
+  }
 
-lookupSpine :: Int -> Spine a -> Maybe a 
-lookupSpine _ Nil = error "variable impossibly old"
-lookupSpine i (Cons j t xs)
-  | i < j     = lookupTree i j t
-  | otherwise = lookupSpine (i - j) xs
+makeClassy ''Env
 
-lookupTree :: Int -> Int -> Tree a -> Maybe a
-lookupTree _ _ Tip = Nothing
-lookupTree i j (Bin a l r)
-  | i == 0 = Just a
-  | i <= j' = lookupTree i j' l
-  | otherwise = lookupTree (i-j'-1) j' r
-  where j' = unsafeShiftR j 1
-lookupTree i j (Bin_ l r)
-  | i == 0 = Nothing
-  | i <= j' = lookupTree i j' l
-  | otherwise = lookupTree (i-j'-1) j' r
-  where j' = unsafeShiftR j 1
+newtype Var r a = Var CellId
 
--- type Lens' s a = forall f. Functor f => (a -> f a) -> s -> f s
+-- we'll store things in state for now. TODO: use some form of update monad
+newVar :: (MonadState s m, HasEnv s m) => m (Var a)
+newVar = state $ cells $ \cs@(Env i _) -> (cons (Cell bottom act mempty mempty) cs, Var i)
 
-var :: Int -> Lens' (Env a) (Maybe a)
-var = fusing . var'
+write :: (MonadState s m, HasEnv s m) => Var a -> a -> m ()
+write (Var cid) a = do
+  Cell cv cl cp <- use (cells.var i)
+  forM_ (act a cv) $ \(cv', c) -> do
+    cells.var i .~ Cell cv' (record log c) cp
+    fire cp
 
-var' :: Int -> Lens' (Env a) (Maybe a)
-var' i f (Env j k xs)
-  | i > j     = error "variable impossibly new"
-  | i > k     = f Nothing <&> \case
-    Nothing -> Env j k xs
-    Just a  -> Env j (i+1) $ cons a $ padSpine (i - k - 1) xs
-  | otherwise = Env j k <$> varSpine (k - i - 1) f xs
+fire :: (MonadState s m, HasEnv s m) => Set PropagatorId -> m ()
+fire = return () -- placeholder
 
-varSpine :: Int -> Lens' (Spine a) (Maybe a)
-varSpine _ _ Nil = error "variable impossibly old"
-varSpine i f (Cons j t xs)
-  | i < j     = (\t' -> Cons j t' xs) <$> varTree i j f t
-  | otherwise = Cons j t <$> varSpine (i - j) f xs
+{-
+-- * Cursors
 
--- place a fresh leaf down inside a tree appropriately
-tweak :: Int -> Int -> Maybe a -> Tree a
-tweak _ _ Nothing = Tip
-tweak i0 j0 (Just a0) = go i0 j0 a0 where
-  go :: Int -> Int -> a -> Tree a
-  go i j a 
-    | i == 0 = Bin a Tip Tip
-    | i <= j' = Bin_ (go i j' a) Tip
-    | otherwise = Bin_ Tip $ go (i-j'-1) j' a
-    where j' = unsafeShiftR j 1
-{-# inline tweak #-}
+data Cursor a = Cursor {-# UNPACK #-} !(Log a) {-# UNPACK #-} !(IORef Int)
 
-varTree :: Int -> Int -> Lens' (Tree a) (Maybe a)
-varTree i j f Tip = tweak i j <$> f Nothing
-varTree i j f (Bin a l r)
-  | i == 0    = (\ma -> bin ma l r) <$> f (Just a)
-  | i <= j'   = (\l' -> Bin a l' r) <$> varTree i j' f l
-  | otherwise = (\r' -> Bin a l r') <$> varTree (i-j'-1) j' f r
-  where j' = unsafeShiftR j 1
-varTree i j f (Bin_ l r)
-  | i == 0    = (\ma -> bin ma l r) <$> f Nothing
-  | i <= j'   = (\l' -> bin_ l' r) <$> varTree i j' f l
-  | otherwise = (\r' -> bin_ l r') <$> varTree (i-j'-1) j' f r
-  where j' = unsafeShiftR j 1
+-- | Subscribe to _new_ updates, but we won't get the history.
+newCursor :: Monoid a => Log a -> IO (Cursor a)
+newCursor l@(Log lp) = mask_ $ do
+  n <- atomicModifyIORef' lp $ \(LogState t v c m) -> watchNew t v c m
+  p <- newIORef n
+  let result = Cursor l p
+  _ <- mkWeakIORef p $ deleteCursor result
+  return result
+
+-- | Subscribe to the oldest updates available. If we allocated our 'newLog' as persistent this will hold everything.
+oldCursor :: Monoid a => Log a -> IO (Cursor a)
+oldCursor l@(Log lp) = mask_ $ do
+  n <- atomicModifyIORef' lp $ \(LogState t v c m) -> watchOld t v c m
+  p <- newIORef n
+  let result = Cursor l p
+  _ <- mkWeakIORef p $ deleteCursor result
+  return result
+
+data InvalidCursor = InvalidCursor deriving (Show,Exception)
+
+
+-- 0 m 1 m {2 mempty} 3 m 4 m {5 mempty} {6 mempty} {7 mempty} 8 m {9 mempty} 10 Maybe
+-- {}'d things are implied
+advance :: Monoid a => Cursor a -> IO a
+advance (Cursor (Log lp) p) = readIORef p >>= \i -> if 
+  | i < 0 -> throwIO InvalidCursor -- this cursor has been deleted
+  | otherwise -> mask_ $ do
+    (j,r) <- atomicModifyIORef lp $ \ls@(LogState t v c m) -> if
+      | i >= v -> case m of
+        Nothing -> (ls,(i,mempty)) -- nothing new, stay put
+        Just a 
+          | c == 1 -> case viewr t of
+            t' :> LogEntry ov oc b -> (LogState (t' |> LogEntry ov oc (mappend b a)) v 1 Nothing,(v,a)) -- merge
+            EmptyR                 -> (LogState t v c Nothing,(i,a)) -- we're the only one listening
+          | !v' <- v + 1           -> (LogState (t |> LogEntry v (c-1) a) v' 1 Nothing,(v',a)) -- observe and bump
+      | otherwise -> case split (\(LogEntry j _ _) -> j >= i) t of
+        (l,r) -> case viewr l of
+          EmptyR -> case watchNew t v c m of -- only fixes an "illegal" cursor? remove this?
+            (ls', j) -> (ls', (j, contents (measure t) <> fold m))
+          l' :> LogEntry j c' a 
+            | (ls', k) <- watchNew (nl >< r) v c m -> (ls', (k, a <> contents (measure r) <> fold m))
+            where nl | c' > 1 = l' |> LogEntry j (c'-1) a
+                     | otherwise = case viewr l' of
+                       l'' :> LogEntry k c'' b -> l'' |> LogEntry k c'' (mappend b a)
+                       EmptyR -> mempty -- forget history before the first cursor
+    -- 'mask_' required because if we catch an async exception between the modifyIORef above and this write
+    -- we'd invalidate this cursor
+    writeIORef p j 
+    return r
+
+deleteCursor :: Monoid a => Cursor a -> IO ()
+deleteCursor (Cursor (Log lp) p) = do
+  i <- readIORef p
+  mask_ $ do
+    atomicModifyIORef lp $ \ls@(LogState t v c m) -> if
+      | i >= v -> (LogState t v (c-1) m, ())
+      | otherwise -> case split (\(LogEntry j _ _) -> j >= i) t of
+        (l,r) -> case viewr l of
+          EmptyR -> (ls,())
+          l' :> LogEntry j c' a -> (LogState (nl >< r) v c m, ()) where
+            nl | c' > 1 = l' |> LogEntry j (c'-1) a
+               | otherwise = case viewr l' of
+                 EmptyR -> mempty
+                 l'' :> LogEntry k c'' b -> l'' |> LogEntry k c'' (mappend b a) 
+    writeIORef p (-1) -- write an illegal version number.
+
+-- | We haven't called deleteCursor on this thing yet, have we?
+validCursor :: Cursor a -> IO Bool
+validCursor (Cursor _ p) = (>= 0) <$> readIORef p 
+
+-}
+
