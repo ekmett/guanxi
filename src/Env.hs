@@ -1,8 +1,27 @@
+{-# language AllowAmbiguousTypes #-}
+{-# language DefaultSignatures #-}
+{-# language FlexibleContexts #-}
+{-# language FlexibleInstances #-}
+{-# language FunctionalDependencies #-}
+{-# language GADTs #-}
+{-# language LambdaCase #-}
+{-# language MultiParamTypeClasses #-}
+{-# language ScopedTypeVariables #-}
+{-# language TemplateHaskell #-}
+{-# language TypeApplications #-}
+{-# language TypeFamilies #-}
+{-# language TypeOperators #-}
+
 module Env where
 
+import Control.Arrow (first)
+import Control.Monad.State
+import Control.Lens
 import Data.Set -- HashSet?
-import Data.FingerTree
-import SkewMaybe
+import Data.FingerTree as F
+import Data.Maybe
+import Data.Typeable
+import Skew
 
 -- version # since, ref count, monoidal summary
 data LogEntry a = LogEntry
@@ -13,16 +32,20 @@ data LogEntry a = LogEntry
 instance Monoid a => Measured (LogEntry a) (LogEntry a) where
   measure = id
 
+instance Semigroup a => Semigroup (LogEntry a) where
+  LogEntry i c a <> LogEntry j d b = LogEntry (max i j) (c + d) (a <> b)
+
 instance Monoid a => Monoid (LogEntry a) where
   mempty = LogEntry 0 0 mempty
-  mappend (LogEntry i c a) (LogEntry j d b) = LogEntry (max i j) (c + d) (a <> b)
 
--- the historical log, the current version number, a reference count and a value 
+-- the historical log, the current version number, a reference count and a value
 -- the 'since' for the entry we're building here would be (current - ref count)
+-- the goal is to use this to track 'fingers' into the changeset for a propagation
+-- cell
 data Log a = Log
   { logTree               :: !(FingerTree (LogEntry a) (LogEntry a))
   , logSince, logRefCount :: {-# UNPACK #-} !Int
-  , logChanges            :: !(Maybe a) 
+  , logChanges            :: !(Maybe a)
   } deriving Show
 
 makeClassy ''Log
@@ -30,82 +53,103 @@ makeClassy ''Log
 -- | Argument tracks if we're persistent or not. If persistent then 'oldCursors' can start at the beginning
 -- otherwise we won't collect history beyond what is needed to support active cursors.
 newLog :: Monoid a => Bool -> Log a
-newLog p = LogState mempty 0 (if p then 1 else 0) Nothing
+newLog p = Log mempty 0 (fromEnum p) Nothing
 
-record :: Monoid a => a -> Log a -> Log a
-record a ls@(LogState t v c m)
+record :: Semigroup a => a -> Log a -> Log a
+record a ls@(Log t v c m)
   | F.null t, c == 0 = ls -- nobody is watching
-  | otherwise = LogState t v c $ Just $ maybe a (`mappend` a) m
+  | otherwise = Log t v c $ Just $ maybe a (<> a) m
 
 -- | Get a snapshot of the # of cursors outstanding
 cursors :: Monoid a => Log a -> Int
-cursors (LogState t _ c _) = refCount (measure t) + c
-    
--- * Utilities
+cursors (Log t _ c _) = refCount (measure t) + c
 
+-- * Utilities
 watchNew :: Monoid a => FingerTree (LogEntry a) (LogEntry a) -> Int -> Maybe a -> State Int (Log a)
 watchNew t c m = state $ \v -> case m of
   Nothing -> (Log t v (c+1) Nothing, v)
-  Just a  -> (Log (t |> LogEntry v c a) v' 1 Nothing, v') where !v' = v + 1
+  Just a  -> (Log (t F.|> LogEntry v c a) v' 1 Nothing, v') where !v' = v + 1
 
 -- clone the oldest version in the log
-watchOld :: Monoid a => FingerTree (LogEntry a) (LogEntry a) -> Int -> Maybe a -> State Int (Log a, Int)
+watchOld :: Monoid a => FingerTree (LogEntry a) (LogEntry a) -> Int -> Maybe a -> State Int (Log a)
 watchOld t c m = state $ \v -> case viewl t of
-  EmptyL                 -> (LogState t v (c+1) m, v)
-  LogEntry ov oc a :< t' -> (LogState (LogEntry ov (oc+1) a <| t') v c m, ov)
+  EmptyL                 -> (Log t v (c+1) m, v)
+  LogEntry ov oc a F.:< t' -> (Log (LogEntry ov (oc+1) a F.<| t') v c m, ov)
 
-record :: Semigroup c => Log c -> c -> Log c
-record l c = l & changes <>~ Just c
-
-type Id = Int
 
 -- a commutative monoid a with an inflationary action on an ordered set b
 -- with the filtered deltas described by c
-class (Monoid a, Monoid c) => ConjoinedSemilattice a b c | a -> b c where
-  bottom :: b
-  default bottom :: (a ~ b) => b
+class (Monoid a, Monoid (Filtered a)) => ConjoinedSemilattice a where
+  type Lattice a :: *
+  type Filtered a :: *
+
+  bottom :: Lattice a
+  default bottom :: (a ~ Lattice a) => Lattice a
   bottom = mempty
 
-  act :: a -> b -> (Bool, b, c) -- tells me if it updated and what to pass to propagators
-  default act :: (a ~ b, b ~ c) => a -> b -> (Bool, b, c)
-  act a b = (c > b, c, c) where c = mappend a b
+  act :: a -> Lattice a -> Maybe (Lattice a, Filtered a) -- tells me if it updated and what to pass to propagators
+  default act :: (a ~ Lattice a, a ~ Filtered a, Ord a) => a -> Lattice a -> Maybe (Lattice a, Filtered a)
+  act a b = (c, c) <$ guard (c > b) where c = mappend a b
 
-newtype PropagatorId = PropagatorId Int
-newtype CellId = CellId Int
+type Id = Int
+
+newtype PropagatorId = PropagatorId Id
+  deriving (Eq,Ord,Show,Read)
+
+newtype CellId = CellId Id
+  deriving (Eq,Ord,Show,Read)
 
 data Propagator m where
-  Propagator :: (Id -> m (Set PropagatorId)) -> Set CellId -> Propagator m
+  Propagator :: (PropagatorId -> m (Set PropagatorId)) -> Set CellId -> Propagator m
 
 data Cell where
-  Cell :: (Typeable a, ConjoinedSemilattice a b c) => 
-     { cellValue :: b
-     , cellLog   :: Log c 
+  Cell :: (Typeable a, ConjoinedSemilattice a) =>
+     { cellProxy :: !(Proxy a)
+     , cellValue :: Lattice a
+     , cellLog   :: Log (Filtered a)
      , cellPropagators :: Set PropagatorId
      } -> Cell
 
 -- this backtracks across threads
-newtype Env m = Env
-  { envCells       :: !(Skew Cell) -- this requires cells to know their update strategy, i can't stub
-  , envPropagators :: !(Skew (Propagator m))
+data Env m = Env
+  { _cells :: !(Skew Cell) -- this requires cells to know their update strategy, i can't stub
+  , _propagators :: !(Skew (Propagator m))
   }
 
 makeClassy ''Env
 
-newtype Var r a = Var CellId
+data Var a where
+  Var :: (Typeable a, ConjoinedSemilattice a) => CellId -> Var a
 
 -- we'll store things in state for now. TODO: use some form of update monad
-newVar :: (MonadState s m, HasEnv s m) => m (Var a)
-newVar = state $ cells $ \cs@(Env i _) -> (cons (Cell bottom act mempty mempty) cs, Var i)
+newVar :: (MonadState s m, HasEnv s m, Typeable a, ConjoinedSemilattice a) => m (Var a)
+newVar = state $ cells $ first (Var . CellId) . allocate 1
 
-write :: (MonadState s m, HasEnv s m) => Var a -> a -> m ()
-write (Var cid) a = do
-  Cell cv cl cp <- use (cells.var i)
-  forM_ (act a cv) $ \(cv', c) -> do
-    cells.var i .~ Cell cv' (record log c) cp
-    fire cp
+writeVar :: forall a s m. (MonadState s m, HasEnv s m) => Var a -> a -> m ()
+writeVar (Var (CellId i)) a = do
+  Cell (_ :: Proxy b) cv cl cp
+    <- uses (cells.var i) $ fromMaybe $ Cell (Proxy :: Proxy a) (bottom @a) (newLog False) mempty
+  case eqT @a @b of
+    Nothing -> error "illegal heap state, you have a var that doesn't apply"
+    Just Refl -> forM_ (act a cv) $ \(cv', c) -> do
+        cells.var i ?= Cell (Proxy :: Proxy a) cv' (record c cl) cp
+        fire cp
 
+-- horrible but valid schedule
 fire :: (MonadState s m, HasEnv s m) => Set PropagatorId -> m ()
-fire = return () -- placeholder
+fire ps = forM_ (maxView ps) $ \ (p@(PropagatorId i), ps') ->
+  use (propagators.var i) >>= \case
+    Nothing -> error "fired missing propagator"
+    Just (Propagator k _) -> do
+      ps'' <- k p
+      fire (ps' <> ps'')
+
+unsafePeek :: forall a s m. (MonadState s m, HasEnv s m) => Var a -> m (Lattice a)
+unsafePeek (Var (CellId i)) = use (cells.var i) <&> \case
+  Just (Cell (_ :: Proxy b) v _ _) -> case eqT @a @b of
+    Just Refl -> v
+    Nothing -> error "illegal heap state, you have a var that doesn't apply"
+  Nothing -> bottom @a
 
 {-
 -- * Cursors
@@ -136,13 +180,13 @@ data InvalidCursor = InvalidCursor deriving (Show,Exception)
 -- 0 m 1 m {2 mempty} 3 m 4 m {5 mempty} {6 mempty} {7 mempty} 8 m {9 mempty} 10 Maybe
 -- {}'d things are implied
 advance :: Monoid a => Cursor a -> IO a
-advance (Cursor (Log lp) p) = readIORef p >>= \i -> if 
+advance (Cursor (Log lp) p) = readIORef p >>= \i -> if
   | i < 0 -> throwIO InvalidCursor -- this cursor has been deleted
   | otherwise -> mask_ $ do
     (j,r) <- atomicModifyIORef lp $ \ls@(LogState t v c m) -> if
       | i >= v -> case m of
         Nothing -> (ls,(i,mempty)) -- nothing new, stay put
-        Just a 
+        Just a
           | c == 1 -> case viewr t of
             t' :> LogEntry ov oc b -> (LogState (t' |> LogEntry ov oc (mappend b a)) v 1 Nothing,(v,a)) -- merge
             EmptyR                 -> (LogState t v c Nothing,(i,a)) -- we're the only one listening
@@ -151,7 +195,7 @@ advance (Cursor (Log lp) p) = readIORef p >>= \i -> if
         (l,r) -> case viewr l of
           EmptyR -> case watchNew t v c m of -- only fixes an "illegal" cursor? remove this?
             (ls', j) -> (ls', (j, contents (measure t) <> fold m))
-          l' :> LogEntry j c' a 
+          l' :> LogEntry j c' a
             | (ls', k) <- watchNew (nl >< r) v c m -> (ls', (k, a <> contents (measure r) <> fold m))
             where nl | c' > 1 = l' |> LogEntry j (c'-1) a
                      | otherwise = case viewr l' of
@@ -159,7 +203,7 @@ advance (Cursor (Log lp) p) = readIORef p >>= \i -> if
                        EmptyR -> mempty -- forget history before the first cursor
     -- 'mask_' required because if we catch an async exception between the modifyIORef above and this write
     -- we'd invalidate this cursor
-    writeIORef p j 
+    writeIORef p j
     return r
 
 deleteCursor :: Monoid a => Cursor a -> IO ()
@@ -175,12 +219,12 @@ deleteCursor (Cursor (Log lp) p) = do
             nl | c' > 1 = l' |> LogEntry j (c'-1) a
                | otherwise = case viewr l' of
                  EmptyR -> mempty
-                 l'' :> LogEntry k c'' b -> l'' |> LogEntry k c'' (mappend b a) 
+                 l'' :> LogEntry k c'' b -> l'' |> LogEntry k c'' (mappend b a)
     writeIORef p (-1) -- write an illegal version number.
 
 -- | We haven't called deleteCursor on this thing yet, have we?
 validCursor :: Cursor a -> IO Bool
-validCursor (Cursor _ p) = (>= 0) <$> readIORef p 
+validCursor (Cursor _ p) = (>= 0) <$> readIORef p
 
 -}
 
