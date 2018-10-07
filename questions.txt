@@ -1,6 +1,6 @@
 * Is there an update monad story?
   * Can I use it to recycle the right hand sides of (<*>)'s in modified contexts
-  * A computation would return the set of environment variables read and written to
+  * A computation would return the set of environment variables read and written
  
 * How to do garbage collection on environments?
   * Seems to need a deep embedding
@@ -13,12 +13,13 @@
     all-diffable things
 
 * SAT solving
-  * Conflict directed clauses should be able to promoted to be used across 'worlds'
-    so long as the latest clause that contributed a unit propagation or contradiction
-    is consistent across both worlds.
+  * Conflict clauses should be able to promoted to be used across worlds
+    so long as the latest clause that contributed a unit propagation or
+    contradiction is consistent across both worlds.
 
 * Reflection without remorse
-  * Can it remove some of the performance difference between triangular and idempotent substitutions?
+  * Can it remove some of the performance difference between triangular
+    and idempotent substitutions?
   * Can it fix up some of the hidden costs of LogicT?
 
 * How to nicely use typed environments?

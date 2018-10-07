@@ -3,7 +3,10 @@
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language FunctionalDependencies #-}
+{-# language RankNTypes #-}
 {-# language GADTs #-}
+{-# language BangPatterns #-}
+{-# language MultiWayIf #-}
 {-# language LambdaCase #-}
 {-# language MultiParamTypeClasses #-}
 {-# language ScopedTypeVariables #-}
@@ -19,6 +22,7 @@ import Control.Monad.State
 import Control.Lens
 import Data.Set -- HashSet?
 import Data.FingerTree as F
+import Data.Foldable as Foldable
 import Data.Maybe
 import Data.Typeable
 import Skew
@@ -64,18 +68,16 @@ record a ls@(Log t v c m)
 cursors :: Monoid a => Log a -> Int
 cursors (Log t _ c _) = refCount (measure t) + c
 
--- * Utilities
-watchNew :: Monoid a => FingerTree (LogEntry a) (LogEntry a) -> Int -> Maybe a -> State Int (Log a)
-watchNew t c m = state $ \v -> case m of
-  Nothing -> (Log t v (c+1) Nothing, v)
-  Just a  -> (Log (t F.|> LogEntry v c a) v' 1 Nothing, v') where !v' = v + 1
+watchNew :: Monoid a => Log a -> (Int, Log a)
+watchNew (Log t v c m) = case m of
+  Nothing -> (v, Log t v (c+1) Nothing)
+  Just a  -> (v', Log (t F.|> LogEntry v c a) v' 1 Nothing) where !v' = v + 1
 
 -- clone the oldest version in the log
-watchOld :: Monoid a => FingerTree (LogEntry a) (LogEntry a) -> Int -> Maybe a -> State Int (Log a)
-watchOld t c m = state $ \v -> case viewl t of
-  EmptyL                 -> (Log t v (c+1) m, v)
-  LogEntry ov oc a F.:< t' -> (Log (LogEntry ov (oc+1) a F.<| t') v c m, ov)
-
+watchOld :: Monoid a => Log a -> (Int, Log a)
+watchOld (Log t v c m) = case viewl t of
+  EmptyL -> (v, Log t v (c+1) m)
+  LogEntry ov oc a F.:< t' -> (ov, Log (LogEntry ov (oc+1) a F.<| t') v c m)
 
 -- a commutative monoid a with an inflationary action on an ordered set b
 -- with the filtered deltas described by c
@@ -100,15 +102,27 @@ newtype CellId = CellId Id
   deriving (Eq,Ord,Show,Read)
 
 data Propagator m where
-  Propagator :: (PropagatorId -> m (Set PropagatorId)) -> Set CellId -> Propagator m
+  Propagator :: Typeable s =>
+    { propagatorAction :: PropagatorId -> s -> m (Set PropagatorId, s)
+    , propagatorState :: s
+    , propagatorSources :: Set CellId
+    } -> Propagator m
 
 data Cell where
   Cell :: (Typeable a, ConjoinedSemilattice a) =>
-     { cellProxy :: !(Proxy a)
+     { cellProxy :: {-# UNPACK #-} !(Proxy a)
      , cellValue :: Lattice a
      , cellLog   :: Log (Filtered a)
      , cellPropagators :: Set PropagatorId
      } -> Cell
+
+data KnownCell a = KnownCell
+  { _knownCellValue :: Lattice a
+  , _knownCellLog :: Log (Filtered a)
+  , _knownCellPropagators :: Set PropagatorId
+  }
+
+makeClassy ''KnownCell
 
 -- this backtracks across threads
 data Env m = Env
@@ -140,91 +154,71 @@ fire :: (MonadState s m, HasEnv s m) => Set PropagatorId -> m ()
 fire ps = forM_ (maxView ps) $ \ (p@(PropagatorId i), ps') ->
   use (propagators.var i) >>= \case
     Nothing -> error "fired missing propagator"
-    Just (Propagator k _) -> do
-      ps'' <- k p
+    Just (Propagator k (s :: a) _) -> do
+      (ps'', s') <- k p s
+      propagators.var i %= \case
+        Just (Propagator k' (_ :: b) cs) -> case eqT @a @b of
+          Just Refl -> Just (Propagator k' s' cs)
+          Nothing -> error "somebody swapped out my propagator when I wasn't looking"
+        Nothing -> Nothing -- deleted in the meantime
       fire (ps' <> ps'')
 
-unsafePeek :: forall a s m. (MonadState s m, HasEnv s m) => Var a -> m (Lattice a)
-unsafePeek (Var (CellId i)) = use (cells.var i) <&> \case
-  Just (Cell (_ :: Proxy b) v _ _) -> case eqT @a @b of
-    Just Refl -> v
-    Nothing -> error "illegal heap state, you have a var that doesn't apply"
-  Nothing -> bottom @a
+-- TODO: should we detect that we wrote back a trivial cell change?
+cell :: forall a s m. HasEnv s m => Var a -> Lens' s (KnownCell a)
+cell (Var (CellId i)) = cells . var i . known where
 
-{-
--- * Cursors
+  known :: Lens' (Maybe Cell) (KnownCell a)
+  known f Nothing = forget <$> f (KnownCell (bottom @a) (newLog False) mempty)
+  known f (Just (Cell (_ :: Proxy b) cb cl cp)) = case eqT @a @b of
+      Just Refl -> forget <$> f (KnownCell cb cl cp)
+      Nothing -> error "Env.cell: bad Var!"
 
-data Cursor a = Cursor {-# UNPACK #-} !(Log a) {-# UNPACK #-} !(IORef Int)
+  forget :: KnownCell a -> Maybe Cell
+  forget (KnownCell cb cl cp) = Just $ Cell (Proxy @a) cb cl cp
+
+peek :: (MonadState s m, HasEnv s m) => Var a -> m (Lattice a)
+peek v = use (cell v . knownCellValue)
+
+data Cursor a = Cursor {-# UNPACK #-} !(Var a) {-# UNPACK #-} !Int
 
 -- | Subscribe to _new_ updates, but we won't get the history.
-newCursor :: Monoid a => Log a -> IO (Cursor a)
-newCursor l@(Log lp) = mask_ $ do
-  n <- atomicModifyIORef' lp $ \(LogState t v c m) -> watchNew t v c m
-  p <- newIORef n
-  let result = Cursor l p
-  _ <- mkWeakIORef p $ deleteCursor result
-  return result
+newCursor :: (MonadState s m, HasEnv s m) => Var a -> m (Cursor a)
+newCursor v@Var{} = Cursor v <$> state (cell v $ knownCellLog watchNew)
 
--- | Subscribe to the oldest updates available. If we allocated our 'newLog' as persistent this will hold everything.
-oldCursor :: Monoid a => Log a -> IO (Cursor a)
-oldCursor l@(Log lp) = mask_ $ do
-  n <- atomicModifyIORef' lp $ \(LogState t v c m) -> watchOld t v c m
-  p <- newIORef n
-  let result = Cursor l p
-  _ <- mkWeakIORef p $ deleteCursor result
-  return result
+oldCursor :: (MonadState s m, HasEnv s m) => Var a -> m (Cursor a)
+oldCursor v@Var{} = Cursor v <$> state (cell v $ knownCellLog watchOld)
 
-data InvalidCursor = InvalidCursor deriving (Show,Exception)
+deleteCursor :: (MonadState s m, HasEnv s m) => Cursor a -> m ()
+deleteCursor (Cursor x@Var{} i) = cell x . knownCellLog %= \ls@(Log t v c m) -> if
+  | i >= v -> Log t v (c-1) m
+  | otherwise -> case F.split (\(LogEntry j _ _) -> j >= i) t of
+    (l,r) -> case viewr l of
+      EmptyR -> ls
+      l' F.:> LogEntry j c' a -> Log (nl >< r) v c m where
+        nl | c' > 1 = l' F.|> LogEntry j (c'-1) a
+           | otherwise = case viewr l' of
+             EmptyR -> mempty
+             l'' F.:> LogEntry k c'' b -> l'' F.|> LogEntry k c'' (mappend b a)
 
+-- (0{2} m) (2{3} m) (3{4}) m {1} Nothing
 
 -- 0 m 1 m {2 mempty} 3 m 4 m {5 mempty} {6 mempty} {7 mempty} 8 m {9 mempty} 10 Maybe
 -- {}'d things are implied
-advance :: Monoid a => Cursor a -> IO a
-advance (Cursor (Log lp) p) = readIORef p >>= \i -> if
-  | i < 0 -> throwIO InvalidCursor -- this cursor has been deleted
-  | otherwise -> mask_ $ do
-    (j,r) <- atomicModifyIORef lp $ \ls@(LogState t v c m) -> if
-      | i >= v -> case m of
-        Nothing -> (ls,(i,mempty)) -- nothing new, stay put
-        Just a
-          | c == 1 -> case viewr t of
-            t' :> LogEntry ov oc b -> (LogState (t' |> LogEntry ov oc (mappend b a)) v 1 Nothing,(v,a)) -- merge
-            EmptyR                 -> (LogState t v c Nothing,(i,a)) -- we're the only one listening
-          | !v' <- v + 1           -> (LogState (t |> LogEntry v (c-1) a) v' 1 Nothing,(v',a)) -- observe and bump
-      | otherwise -> case split (\(LogEntry j _ _) -> j >= i) t of
-        (l,r) -> case viewr l of
-          EmptyR -> case watchNew t v c m of -- only fixes an "illegal" cursor? remove this?
-            (ls', j) -> (ls', (j, contents (measure t) <> fold m))
-          l' :> LogEntry j c' a
-            | (ls', k) <- watchNew (nl >< r) v c m -> (ls', (k, a <> contents (measure r) <> fold m))
-            where nl | c' > 1 = l' |> LogEntry j (c'-1) a
-                     | otherwise = case viewr l' of
-                       l'' :> LogEntry k c'' b -> l'' |> LogEntry k c'' (mappend b a)
-                       EmptyR -> mempty -- forget history before the first cursor
-    -- 'mask_' required because if we catch an async exception between the modifyIORef above and this write
-    -- we'd invalidate this cursor
-    writeIORef p j
-    return r
-
-deleteCursor :: Monoid a => Cursor a -> IO ()
-deleteCursor (Cursor (Log lp) p) = do
-  i <- readIORef p
-  mask_ $ do
-    atomicModifyIORef lp $ \ls@(LogState t v c m) -> if
-      | i >= v -> (LogState t v (c-1) m, ())
-      | otherwise -> case split (\(LogEntry j _ _) -> j >= i) t of
-        (l,r) -> case viewr l of
-          EmptyR -> (ls,())
-          l' :> LogEntry j c' a -> (LogState (nl >< r) v c m, ()) where
-            nl | c' > 1 = l' |> LogEntry j (c'-1) a
-               | otherwise = case viewr l' of
-                 EmptyR -> mempty
-                 l'' :> LogEntry k c'' b -> l'' |> LogEntry k c'' (mappend b a)
-    writeIORef p (-1) -- write an illegal version number.
-
--- | We haven't called deleteCursor on this thing yet, have we?
-validCursor :: Cursor a -> IO Bool
-validCursor (Cursor _ p) = (>= 0) <$> readIORef p
-
--}
-
+advance :: (MonadState s m, HasEnv s m) => Cursor a -> m (Filtered a, Cursor a)
+advance old@(Cursor x@Var{} i) = cell x . knownCellLog %%= \ls@(Log t v c m) -> if
+  | i >= v -> case m of
+    Nothing -> ((mempty, old), ls)
+    Just a
+      | c == 1 -> case viewr t of
+        t' F.:> LogEntry ov oc b -> ((a,old),Log (t' F.|> LogEntry ov oc (mappend b a)) v 1 Nothing)
+        EmptyR -> ((a,old), Log t v c Nothing) -- we're the only one listening
+      | !v' <- v + 1 -> ((a, Cursor x v'), Log (t F.|> LogEntry v (c-1) a) v' 1 Nothing)
+  | otherwise -> case F.split (\(LogEntry j _ _) -> j >= i) t of
+    (l,r) -> case viewr l of
+      EmptyR -> error "missing cursor!"
+      l' F.:> LogEntry j c' a
+        | (ls', k) <- watchNew (Log (nl >< r) v c m) -> ((a <> contents (measure r) <> Foldable.fold m, Cursor x ls'), k) where
+        nl | c' > 1 = l' F.|> LogEntry j (c'-1) a
+           | otherwise = case viewr l' of
+             l'' F.:> LogEntry k c'' b -> l'' F.|> LogEntry k c'' (mappend b a)
+             EmptyR -> mempty
