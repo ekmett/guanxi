@@ -1,7 +1,7 @@
 {-# language LambdaCase #-}
-{-# language DeriveTraversable #-}
-{-# language ViewPatterns #-}
 {-# language TypeFamilies #-}
+{-# language RankNTypes #-}
+{-# language KindSignatures #-}
 
 module Logic.Reflection
   ( LogicT
@@ -17,6 +17,7 @@ import Data.Bifunctor
 import Data.Bifoldable
 import Data.Bitraversable
 import Data.Functor.Identity
+import Data.Kind
 import Logic.Class
 import Unaligned
 
@@ -104,11 +105,13 @@ observeMany n = runIdentity . observeManyT n
 
 observeAll :: Logic a -> [a]
 observeAll m = go (runIdentity (view m)) where
+  go :: forall a. View a (Logic a) -> [a]
   go (a :&: t) = a : observeAll t
   go _ = []
 
 observeT :: Monad m => LogicT m a -> m a
 observeT m = view m >>= go where
+  go :: forall (m :: Type -> Type) a b. Monad m => View a b -> m a
   go (a :&: _) = return a
   go _ = fail "No results"
 
@@ -121,5 +124,6 @@ observeManyT n m
 
 observeAllT :: Monad m => LogicT m a -> m [a]
 observeAllT m = view m >>= go where
+  go :: forall (f :: Type -> Type) a.  Monad f => View a (LogicT f a) -> f [a]
   go (a :&: t) = (a:) <$> observeAllT t
   go _ = return []
