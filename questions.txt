@@ -25,4 +25,4 @@
 * How to nicely use typed environments?
   * Vault? wants a nice unique variable supply?
       concurrent-supply
-
+      http://web.engr.oregonstate.edu/~erwig/HaskellRules/
