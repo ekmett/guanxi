@@ -3,6 +3,13 @@
 {-# language TypeFamilies #-}
 {-# language FlexibleContexts #-}
 {-# language UndecidableInstances #-}
+{-# language RankNTypes #-}
+{-# language GADTs #-}
+
+-- |
+-- This construction is based on
+-- <https://people.seas.harvard.edu/~pbuiras/publications/KeyMonadHaskell2016.pdf The Key Monad: Type-Safe Unconstrained Dynamic Typing>
+-- by Atze van der Ploeg, Koen Claessen, and Pablo Buiras
 
 module Key where
 
@@ -23,63 +30,46 @@ import Data.Proxy
 import Control.Monad.ST
 import Unsafe.Coerce
 
-class Equitable t where
-  test :: t a -> t b -> Maybe (a :~: b)
+newtype Key s a = Key (MutVar s (Proxy a))
 
-instance Equitable ((:~:)c) where
-  test Refl Refl = Just Refl
-
-newtype PrimKey s a = PrimKey (MutVar s (Proxy a))
-
-instance Equitable (PrimKey s) where
-  test (PrimKey s) (PrimKey u) 
-    | s == unsafeCoerce u = Just (unsafeCoerce Refl)
-    | otherwise           = Nothing
-  -- a potentially rather small trusted code base
+-- a potentially rather small trusted code base
+test :: Key s a -> Key s b -> Maybe (a :~: b)
+test (Key s) (Key t)
+  | s == unsafeCoerce t = Just (unsafeCoerce Refl)
+  | otherwise           = Nothing
+{-# inline test #-}
 
 -- safer than ST s in that we can transform it with things like LogicT
-class (Equitable (Key m), Monad m) => MonadKey m where
-  type Key m :: * -> *
-  type Key m = PrimKey (PrimState m)
-  newKey :: m (Key m a)
-  default newKey :: (Key m ~ PrimKey (PrimState m), PrimMonad m) => m (Key m a)
-  newKey = stToPrim $ PrimKey <$> newMutVar Proxy
-
-instance MonadKey (ST s)
-instance MonadKey IO
-
-instance MonadKey m => MonadKey (Strict.StateT s m) where
-  type Key (Strict.StateT s m) = Key m
+class Monad m => MonadKey m where
+  newKey :: m (Key (PrimState m) a)
+  default newKey :: (m ~ t n, MonadTrans t, MonadKey n, PrimState m ~ PrimState n) =>  m (Key (PrimState m) a)
   newKey = lift newKey
+  {-# inline newKey #-}
 
-instance MonadKey m => MonadKey (Lazy.StateT s m) where
-  type Key (Lazy.StateT s m) = Key m
-  newKey = lift newKey
+primKey :: PrimMonad m => m (Key (PrimState m) a)
+primKey = stToPrim $ Key <$> newMutVar Proxy
+{-# inline primKey #-}
 
-instance (Monoid w, MonadKey m) => MonadKey (Strict.WriterT w m) where
-  type Key (Strict.WriterT w m) = Key m
-  newKey = lift newKey
+runKey :: (forall m. MonadKey m => m a) -> a
+runKey s = runST s
 
-instance (Monoid w, MonadKey m) => MonadKey (Lazy.WriterT w m) where
-  type Key (Lazy.WriterT w m) = Key m
-  newKey = lift newKey
+instance MonadKey (ST s) where newKey = primKey
+instance MonadKey IO where newKey = primKey
+instance MonadKey m => MonadKey (Strict.StateT s m)
+instance MonadKey m => MonadKey (Lazy.StateT s m)
+instance (Monoid w, MonadKey m) => MonadKey (Strict.WriterT w m)
+instance (Monoid w, MonadKey m) => MonadKey (Lazy.WriterT w m)
+instance MonadKey m => MonadKey (ReaderT e m)
+instance (Monoid w, MonadKey m) => MonadKey (Strict.RWST r w s m)
+instance (Monoid w, MonadKey m) => MonadKey (Lazy.RWST r w s m)
+instance MonadKey m => MonadKey (ContT r m)
+instance MonadKey m => MonadKey (ExceptT e m)
 
-instance MonadKey m => MonadKey (ReaderT e m) where
-  type Key (ReaderT e m) = Key m
-  newKey = lift newKey
+data Box s where
+  Lock :: {-# unpack #-} !(Key s a) -> a -> Box s
 
-instance (Monoid w, MonadKey m) => MonadKey (Strict.RWST r w s m) where
-  type Key (Strict.RWST r w s m) = Key m
-  newKey = lift newKey
-
-instance (Monoid w, MonadKey m) => MonadKey (Lazy.RWST r w s m) where
-  type Key (Lazy.RWST r w s m) = Key m
-  newKey = lift newKey
-
-instance MonadKey m => MonadKey (ContT r m) where
-  type Key (ContT r m) = Key m
-  newKey = lift newKey
-
-instance MonadKey m => MonadKey (ExceptT e m) where
-  type Key (ExceptT e m) = Key m
-  newKey = lift newKey
+unlock :: Key s a -> Box s -> Maybe a
+unlock k (Lock l x) = case test k l of
+  Just Refl -> Just x
+  Nothing -> Nothing
+{-# inline unlock #-}
