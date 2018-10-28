@@ -1,3 +1,5 @@
+module Dyn where
+
 data Dyn a
   = D0
   | D1 !a

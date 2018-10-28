@@ -26,6 +26,7 @@ library
     containers,
     fingertree,
     lens,
+    primitive,
     transformers        >= 0.5.5 && < 0.6,
     mtl                 >= 2.2.2 && < 2.3
 
@@ -38,6 +39,7 @@ library
     Env
     Free
     Freer
+    Key
     Logic.Class
     Logic.CPS
     Logic.Naive

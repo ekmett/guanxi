@@ -179,7 +179,7 @@ cell (Var (CellId i)) = cells . var i . known where
 peek :: (MonadState s m, HasEnv s m) => Var a -> m (Lattice a)
 peek v = use (cell v . knownCellValue)
 
-data Cursor a = Cursor {-# UNPACK #-} !(Var a) {-# UNPACK #-} !Int
+data Cursor a = Cursor !(Var a) {-# UNPACK #-} !Int
 
 -- | Subscribe to _new_ updates, but we won't get the history.
 newCursor :: (MonadState s m, HasEnv s m) => Var a -> m (Cursor a)

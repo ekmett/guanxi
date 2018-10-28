@@ -26,3 +26,24 @@
   * Vault? wants a nice unique variable supply?
       concurrent-supply
 
+* Pointwise products of abstract domains? 
+
+* QIP? What is the Abstract-CDCL analogue for SDCL?
+  Wouldn't QIP and QMIP be necessary to handle things like deriving "cheap" 
+  equivalent definitions via funext.
+
+* Can you use WQOs rather than integer costs or mappings of domains to reals for
+  cost analysis?
+
+* What can be learned from open QBF solving?
+  https://www.cs.cmu.edu/~wklieber/papers/cp2013-qbf-with-free-vars.pdf
+
+* How do I get crlibm installed and usable dynamically for if I want to have
+  nice floating point intervals?
+
+* The polyhedral abstract domain is optimized by maintaining a dynamic partitioning
+  of relational variables. The octagon domain could follow suit.
+
+* What is an efficient encoding of polyhedral/octagon/etc. abstract domain operations that nevertheless remains functional? Can I abuse transients to allow a mostly in-place update policy between world forks?
+
+* gappa w/ octagons?
