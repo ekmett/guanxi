@@ -23,6 +23,7 @@ import Control.Lens
 import Data.Set -- HashSet?
 import Data.FingerTree as F
 import Data.Foldable as Foldable
+import Data.Kind
 import Data.Maybe
 import Data.Typeable
 import Skew
@@ -82,8 +83,8 @@ watchOld (Log t v c m) = case viewl t of
 -- a commutative monoid a with an inflationary action on an ordered set b
 -- with the filtered deltas described by c
 class (Monoid a, Monoid (Filtered a)) => ConjoinedSemilattice a where
-  type Lattice a :: *
-  type Filtered a :: *
+  type Lattice a :: Type
+  type Filtered a :: Type
 
   bottom :: Lattice a
   default bottom :: (a ~ Lattice a) => Lattice a

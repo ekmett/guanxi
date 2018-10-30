@@ -1,4 +1,4 @@
-{-# language GADTs, PolyKinds #-}
+{-# language GADTs, PolyKinds, RankNTypes #-}
 
 module Aligned
   ( View(..)
@@ -16,6 +16,7 @@ module Aligned
 
 import Prelude hiding (id,(.))
 import Control.Category
+import Data.Kind
 
 --------------------------------------------------------------------------------
 -- * Interface
@@ -47,7 +48,7 @@ class Singleton t where
 -- The opposite category
 --------------------------------------------------------------------------------
 
-newtype Op (f :: k -> k -> *) (a :: k) (b :: k) = Op { runOp :: f b a }
+newtype Op (f :: k -> k -> Type) (a :: k) (b :: k) = Op { runOp :: f b a }
 
 instance Category f => Category (Op f) where
   id = Op id
