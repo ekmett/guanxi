@@ -47,3 +47,5 @@
 * What is an efficient encoding of polyhedral/octagon/etc. abstract domain operations that nevertheless remains functional? Can I abuse transients to allow a mostly in-place update policy between world forks?
 
 * gappa w/ octagons?
+
+* http://web.engr.oregonstate.edu/~erwig/HaskellRules/
