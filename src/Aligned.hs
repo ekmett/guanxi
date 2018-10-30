@@ -96,9 +96,8 @@ data Thrist f a b where
 instance Category (Thrist f) where
   id = Nil
   xs . Nil = xs
-  xs0 . ys0 = go xs0 ys0 where
-    go Nil ys = ys
-    go (Cons x xs) ys = Cons x (xs . ys)
+  Nil . ys = ys
+  Cons x xs . ys = Cons x $ xs . ys
 
 instance Nil Thrist where
   nil = Nil
