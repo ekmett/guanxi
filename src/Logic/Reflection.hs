@@ -1,7 +1,6 @@
 {-# language LambdaCase #-}
 {-# language TypeFamilies #-}
 {-# language RankNTypes #-}
-{-# language KindSignatures #-}
 
 module Logic.Reflection
   ( LogicT

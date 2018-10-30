@@ -4,7 +4,6 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE KindSignatures #-}
 
 module Logic.CPS where
 
@@ -15,7 +14,6 @@ import Control.Monad.Reader
 import Control.Monad.State.Class
 import Data.Foldable (fold)
 import Data.Functor.Identity
-
 import Logic.Class
 import Unaligned
 

@@ -1,6 +1,5 @@
 {-# language RankNTypes #-}
 {-# language PatternSynonyms #-}
-{-# language ViewPatterns #-}
 {-# language FlexibleInstances #-}
 {-# language UndecidableInstances #-}
 {-# language MultiParamTypeClasses #-}
@@ -53,10 +52,9 @@ class MonadPlus m => MonadLogic m where
 
   -- | pruning
   once :: m a -> m a
-  once m = do
-    msplit m >>= \case
-      Empty   -> empty
-      a :&: _ -> pure a
+  once m = msplit m >>= \case
+    Empty   -> empty
+    a :&: _ -> pure a
 
 instance MonadLogic [] where
   msplit []     = return Empty

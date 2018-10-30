@@ -14,7 +14,6 @@ module Unaligned
   , Rev(..)
   ) where
 
-import Control.Category
 import Control.Applicative.Backwards
 import Data.Bifunctor
 import Data.Bifoldable
@@ -22,7 +21,6 @@ import Data.Bitraversable
 import Data.Foldable as Foldable
 import Data.Semigroup (Dual(..))
 import GHC.Exts
-import Prelude hiding (id,(.))
 
 --------------------------------------------------------------------------------
 -- * Interface

@@ -5,7 +5,6 @@
 {-# language FlexibleContexts #-}
 {-# language BangPatterns #-}
 {-# language RankNTypes #-}
-{-# language KindSignatures #-}
 
 module Unified 
   ( Unified(..)
@@ -18,7 +17,6 @@ import Data.Functor.Sum
 import Data.Functor.Identity
 import Data.Functor.Product
 import Data.Functor.Compose
---import Data.Kind
 import Data.Proxy
 import Freer
 
