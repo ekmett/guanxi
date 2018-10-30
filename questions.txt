@@ -21,6 +21,11 @@
   * Can it remove some of the performance difference between triangular
     and idempotent substitutions?
   * Can it fix up some of the hidden costs of LogicT?
+  * Consider also "A Smart View on Datatypes" https://www.fceia.unr.edu.ar/~mauro/pubs/smartviews/smartviews.pdf
+
+Left-nested list concatenations, left-nested binds on the free monad, and left-nested choices in many non-determinism monads have an algorithmically bad performance. Can we solve this problem without losing the ability to pattern-match on the computation? Surprisingly, there is a deceptively simple solution: use a smart view to pattern-match on the datatype. We introduce the notion of smart view and show how it solves the problem of slow left- nested operations. In particular, we use the technique to obtain fast and simple implementations of lists, of free monads, and of two non-determinism monads.
+
+Code + benchmarks can be found at https://www.fceia.unr.edu.ar/~mauro/pubs/smartviews/
 
 * How to nicely use typed environments?
   * Vault? wants a nice unique variable supply?
