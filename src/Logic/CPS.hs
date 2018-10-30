@@ -13,10 +13,8 @@ import Control.Monad
 import Control.Monad.Error.Class
 import Control.Monad.Reader
 import Control.Monad.State.Class
---import Control.Monad.Trans
 import Data.Foldable (fold)
 import Data.Functor.Identity
-import Data.Kind
 
 import Logic.Class
 import Unaligned
@@ -31,12 +29,8 @@ runLogic :: Logic a -> forall r. (a -> r -> r) -> r -> r
 runLogic l s f = runIdentity $ runLogicT l (fmap . s) (Identity f)
 
 pattern Logic :: (forall r . (a -> r -> r) -> r -> r) -> Logic a
-
 pattern Logic f <- (runLogic -> f)
-  where Logic f
-          = LogicT $
-              \ k ->
-                Identity . f (\ a -> runIdentity . k a . Identity) . runIdentity
+  where Logic f = LogicT $ \ k -> Identity . f (\ a -> runIdentity . k a . Identity) . runIdentity
 
 instance Functor (LogicT f) where
   fmap f lt = LogicT $ \sk fk -> runLogicT lt (sk . f) fk
@@ -67,26 +61,14 @@ instance MonadIO m => MonadIO (LogicT m) where
 
 instance Monad m => MonadLogic (LogicT m) where
   msplit m = lift $ runLogicT m ssk (return Empty)
-    where
-      ssk ::
-           forall (t :: (Type -> Type) -> Type -> Type) (m1 :: Type -> Type) (m2 :: Type -> Type) a b.
-           (MonadTrans t, Monad m1, Monad m2, MonadLogic (t m2))
-        => a
-        -> m2 (View b (t m2 b))
-        -> m1 (View a (t m2 b))
-      ssk a fk = return $ a :&: (lift fk >>= reflect)
+    where ssk a fk = return $ a :&: (lift fk >>= reflect)
 
 instance (Monad m, Foldable m) => Foldable (LogicT m) where
   foldMap f m = fold $ runLogicT m (fmap . mappend . f) (return mempty)
 
 instance Traversable (LogicT Identity) where
   traverse g l = runLogic l (\a ft -> c <$> g a <*> ft) (pure mzero)
-    where
-      c :: forall (m :: Type -> Type) a. MonadPlus m
-        => a
-        -> m a
-        -> m a
-      c a l' = return a `mplus` l'
+    where c a l' = return a `mplus` l'
 
 instance MonadReader r m => MonadReader r (LogicT m) where
   ask = lift ask
@@ -122,12 +104,6 @@ observeManyT :: Monad m => Int -> LogicT m a -> m [a]
 observeManyT n m
   | n <= 0 = return []
   | n == 1 = runLogicT m (\a _ -> return [a]) (return [])
-  | otherwise = runLogicT (msplit m) sk (return [])
-  where
-    sk ::
-         forall (m :: Type -> Type) a p. Monad m
-      => View a (LogicT m a)
-      -> p
-      -> m [a]
+  | otherwise = runLogicT (msplit m) sk (return []) where
     sk Empty _ = return []
     sk (a :&: m') _ = (a :) `liftM` observeManyT (n - 1) m'

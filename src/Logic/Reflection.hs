@@ -17,7 +17,6 @@ import Data.Bifunctor
 import Data.Bifoldable
 import Data.Bitraversable
 import Data.Functor.Identity
-import Data.Kind
 import Logic.Class
 import Unaligned
 
@@ -63,10 +62,10 @@ unview = LogicT . singleton
 
 view :: Monad m => LogicT m a -> m (L m a)
 view (LogicT s) = case uncons s of
-   Empty -> return Empty
-   h :&: t -> h >>= \case
-     Empty -> view (LogicT t)
-     hi :&: LogicT ti -> return $ hi :&: LogicT (ti <> t)
+  Empty -> return Empty
+  h :&: t -> h >>= \case
+    Empty -> view (LogicT t)
+    hi :&: LogicT ti -> return $ hi :&: LogicT (ti <> t)
 
 instance Monad m => Applicative (LogicT m) where
   pure = unview . single
@@ -111,7 +110,6 @@ observeAll m = go (runIdentity (view m)) where
 
 observeT :: Monad m => LogicT m a -> m a
 observeT m = view m >>= go where
-  go :: forall (m :: Type -> Type) a b. Monad m => View a b -> m a
   go (a :&: _) = return a
   go _ = fail "No results"
 
@@ -124,6 +122,5 @@ observeManyT n m
 
 observeAllT :: Monad m => LogicT m a -> m [a]
 observeAllT m = view m >>= go where
-  go :: forall (f :: Type -> Type) a.  Monad f => View a (LogicT f a) -> f [a]
   go (a :&: t) = (a:) <$> observeAllT t
   go _ = return []
