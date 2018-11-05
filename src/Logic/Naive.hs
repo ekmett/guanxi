@@ -1,13 +1,16 @@
 {-# language LambdaCase #-}
+{-# language TypeFamilies #-}
 
 module Logic.Naive where
 
 import Control.Applicative
 import Control.Monad
+import Control.Monad.Primitive
 import Control.Monad.Trans
 import Data.Bifunctor
 import Data.Bifoldable
 import Data.Bitraversable
+import Key
 import Logic.Class
 import Unaligned
 
@@ -51,3 +54,9 @@ instance MonadTrans LogicT where
 
 instance Monad m => MonadLogic (LogicT m) where
   msplit (LogicT m) = lift m
+
+instance PrimMonad m => PrimMonad (LogicT m) where
+  type PrimState (LogicT m) = PrimState m
+  primitive f = lift (primitive f)
+
+instance MonadKey m => MonadKey (LogicT m)

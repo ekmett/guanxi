@@ -31,6 +31,7 @@ import Control.Monad.ST
 import Unsafe.Coerce
 
 newtype Key s a = Key (MutVar s (Proxy a))
+  deriving Eq
 
 -- a potentially rather small trusted code base
 test :: Key s a -> Key s b -> Maybe (a :~: b)
@@ -41,6 +42,7 @@ test (Key s) (Key t)
 
 -- safer than ST s in that we can transform it with things like LogicT
 class Monad m => MonadKey m where
+  -- TODO: we can't use PrimState for this it is class associated
   newKey :: m (Key (PrimState m) a)
   default newKey :: (m ~ t n, MonadTrans t, MonadKey n, PrimState m ~ PrimState n) =>  m (Key (PrimState m) a)
   newKey = lift newKey

@@ -10,12 +10,14 @@ module Logic.Reflection
   ) where
 
 import Control.Monad
+import Control.Monad.Primitive
 import Control.Monad.Trans
 import Control.Applicative
 import Data.Bifunctor
 import Data.Bifoldable
 import Data.Bitraversable
 import Data.Functor.Identity
+import Key
 import Logic.Class
 import Unaligned
 
@@ -94,6 +96,12 @@ instance MonadIO m => MonadIO (LogicT m) where
 
 instance Monad m => MonadLogic (LogicT m) where
   msplit = lift . view
+
+instance PrimMonad m => PrimMonad (LogicT m) where
+  type PrimState (LogicT m) = PrimState m
+  primitive f = lift (primitive f)
+
+instance MonadKey m => MonadKey (LogicT m)
 
 observe :: Logic a -> a
 observe = runIdentity . observeT

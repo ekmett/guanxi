@@ -4,18 +4,21 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Logic.CPS where
 
 import Control.Applicative
 import Control.Monad
 import Control.Monad.Error.Class
+import Control.Monad.Primitive
 import Control.Monad.Reader
 import Control.Monad.State.Class
 import Data.Foldable (fold)
 import Data.Functor.Identity
 import Logic.Class
 import Unaligned
+import Key
 
 newtype LogicT m a = LogicT
   { runLogicT :: forall r. (a -> m r -> m r) -> m r -> m r
@@ -83,6 +86,12 @@ instance MonadError e m => MonadError e (LogicT m) where
       let handle r = r `catchError` \e -> runLogicT (h e) sk fk
        in handle $ runLogicT m (\a -> sk a . handle) fk
 
+instance PrimMonad m => PrimMonad (LogicT m) where
+  type PrimState (LogicT m) = PrimState m
+  primitive f = lift (primitive f)
+
+instance MonadKey m => MonadKey (LogicT m)
+
 observe :: Logic a -> a
 observe = runIdentity . observeT
 
@@ -105,3 +114,4 @@ observeManyT n m
   | otherwise = runLogicT (msplit m) sk (return []) where
     sk Empty _ = return []
     sk (a :&: m') _ = (a :) `liftM` observeManyT (n - 1) m'
+
