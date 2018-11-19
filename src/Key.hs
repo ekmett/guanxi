@@ -25,6 +25,7 @@ import Control.Monad.Trans.RWS.Lazy as Lazy
 import Control.Monad.Trans.Reader as Lazy
 import Control.Monad.Trans.Except
 import Data.Primitive.MutVar
+import Data.Type.Coercion
 import Data.Type.Equality
 import Data.Proxy
 import Control.Monad.ST
@@ -38,6 +39,12 @@ instance TestEquality (Key s) where
     | s == unsafeCoerce t = Just (unsafeCoerce Refl)
     | otherwise           = Nothing
   {-# inline testEquality #-}
+
+instance TestCoercion (Key s) where
+  testCoercion (Key s) (Key t)
+    | s == unsafeCoerce t = Just (unsafeCoerce Refl)
+    | otherwise           = Nothing
+  {-# inline testCoercion #-}
 
 -- safer than ST s in that we can transform it with things like LogicT
 class Monad m => MonadKey m where

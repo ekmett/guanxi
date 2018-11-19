@@ -25,8 +25,9 @@ import Control.Monad.State.Strict as Strict
 import Data.HashMap.Strict (HashMap)
 import Data.IntSet (IntSet)
 import Data.Set (Set)
-import Data.Type.Equality
+import Data.Type.Coercion
 import qualified Data.IntSet as IntSet
+import Data.Type.Equality
 import qualified Data.Set as Set
 
 import Key
@@ -41,10 +42,15 @@ data Var s a = Var !Id !(Key s a)
 instance Show (Var s a) where
   showsPrec d (Var i _) = showsPrec d i
 
-testVar :: Var s a -> Var s b -> Maybe (a :~: b)
-testVar (Var i k) (Var j l) = do
-  guard (i == j)
-  testEquality k l
+instance TestEquality (Var s) where
+  testEquality (Var i k) (Var j l) = do
+    guard (i == j)
+    testEquality k l
+
+instance TestCoercion (Var s) where
+  testCoercion (Var i k) (Var j l) = do
+    guard (i == j)
+    testCoercion k l
 
 newtype VarSet s = VarSet { getVarSet :: IntSet } deriving (Eq,Ord,Show,Semigroup,Monoid)
 
