@@ -61,7 +61,7 @@ instance Monoid (Constraint s a) where
 
 instance Show (Constraint s a) where
   showsPrec _ _ = showString "Constraint{}"
-    
+
 data Val s where
   Val :: Key s a -> Set a -> Constraint s a -> Val s
 
@@ -92,8 +92,8 @@ guts (Var x k) = singular (content.ix x.unlockVal k)
 
 newVar :: Ord a => Set a -> FD s (Var s a)
 newVar s = do
-  k <- newKey 
-  n <- fresh <<+= 1 
+  k <- newKey
+  n <- fresh <<+= 1
   content.at n ?= Val k s mempty
   pure (Var n k)
 
@@ -114,7 +114,7 @@ mutual f g x y = do
   guts y._2 <>= simple x g
   fire $ singleton x <> singleton y
 
-lt :: Ord a => Var s a -> Var s a -> FD s ()  
+lt :: Ord a => Var s a -> Var s a -> FD s ()
 lt x y = do
   guard (x /= y)
   let f xs ys = case Set.minView xs of
@@ -156,7 +156,7 @@ val x = use (guts x . _1) >>= foldr (interleave . is_) empty where
 
 ground :: FD s ()
 ground = do
-  m <- use content 
+  m <- use content
   ifor_ m $ \x (Val l _ _) -> void $ val $ Var x l
 
 eval :: FD s a -> LogicT (ST s) a
@@ -172,7 +172,7 @@ run :: (forall s. FD s a) -> [a]
 run m = runST $ observeAllT $ eval m
 
 example :: FD s (Int, Int, Int, Bool)
-example = do 
+example = do
   x <- newVar [1..5]
   y <- newVar [1..5]
   z <- newVar [1..4]

@@ -90,7 +90,8 @@ instance PrimMonad m => PrimMonad (LogicT m) where
   type PrimState (LogicT m) = PrimState m
   primitive f = lift (primitive f)
 
-instance MonadKey m => MonadKey (LogicT m)
+instance MonadKey m => MonadKey (LogicT m) where
+  type KeyState (LogicT m) = KeyState m
 
 observe :: Logic a -> a
 observe = runIdentity . observeT
