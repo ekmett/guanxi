@@ -44,7 +44,7 @@ instance Show (Var s a) where
 testVar :: Var s a -> Var s b -> Maybe (a :~: b)
 testVar (Var i k) (Var j l) = do
   guard (i == j)
-  test k l
+  testEquality k l
 
 newtype VarSet s = VarSet { getVarSet :: IntSet } deriving (Eq,Ord,Show,Semigroup,Monoid)
 
@@ -83,7 +83,7 @@ simple y f = Constraint $ \xs -> guts y . _1 %%= \ ys -> case f xs ys of
   Just ys' -> (singleton y, ys')
 
 unlockVal :: Key s a -> Traversal' (Val s) (Set a, Constraint s a)
-unlockVal k f v@(Val l s cs) = case test k l of
+unlockVal k f v@(Val l s cs) = case testEquality k l of
   Just Refl -> uncurry (Val l) <$> f (s, cs)
   Nothing -> pure v
 
