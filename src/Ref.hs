@@ -7,15 +7,17 @@
 {-# language RankNTypes #-}
 {-# language GADTs #-}
 
--- logict compatible references
+-- LogicT-compatible references
 module Ref
   ( Ref, RefEnv(..), HasRefEnv(..)
   , ref, newRef, readRef, writeRef, modifyRef, unsafeDeleteRef
+  , refId
   ) where
 
 import Control.Monad (guard)
 import Control.Monad.State.Class
 import Control.Lens
+-- import Data.Hashable
 import Data.Maybe (isJust)
 import Data.Type.Coercion
 import Data.Type.Equality
@@ -25,6 +27,14 @@ import Skew
 -- storing 'a' in here will leak the default value while the reference is alive,
 -- but won't cause the explicit reference environment to grow at all
 data Ref u a = Ref a {-# unpack #-} !(Key u a) {-# unpack #-} !Int
+
+-- use for hashing, etc.
+refId :: Ref u a -> Int
+refId (Ref _ _ i) = i
+
+-- instance Hashable (Ref u a) where
+--  hashWithSalt i (Ref _ _ j) = hashWithSalt i j
+--  hash (Ref _ _ j) = j
 
 instance Eq (Ref u a) where
   Ref _ u i == Ref _ v j = i == j && isJust (testEquality u v) 
