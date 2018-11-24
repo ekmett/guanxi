@@ -7,34 +7,47 @@
 {-# language RankNTypes #-}
 {-# language GADTs #-}
 
-module Ref where
+-- logict compatible references
+module Ref
+  ( Ref, RefEnv(..), HasRefEnv(..)
+  , ref, newRef, readRef, writeRef, modifyRef, unsafeDeleteRef
+  ) where
 
+import Control.Monad (guard)
 import Control.Monad.State.Class
 import Control.Lens
-import Data.IntMap hiding (Key)
+import Data.Maybe (isJust)
+import Data.Type.Coercion
 import Data.Type.Equality
 import Key
+import Skew
 
 -- storing 'a' in here will leak the default value while the reference is alive,
--- but won't cause the environment to grow
+-- but won't cause the explicit reference environment to grow at all
 data Ref u a = Ref a {-# unpack #-} !(Key u a) {-# unpack #-} !Int
 
-data RefEnv u = RefEnv 
-  { _refs     :: IntMap (Box u)
-  , _freshRefId :: !Int
-  }
+instance Eq (Ref u a) where
+  Ref _ u i == Ref _ v j = i == j && isJust (testEquality u v) 
+
+instance TestEquality (Ref u) where
+  testEquality (Ref _ u i) (Ref _ v j) = guard (i == j) *> testEquality u v
+
+instance TestCoercion (Ref u) where
+  testCoercion (Ref _ u i) (Ref _ v j) = guard (i == j) *> testCoercion u v
+
+data RefEnv u = RefEnv { _refs :: Skew (Box u) }
 
 makeClassy ''RefEnv
 
 ref :: HasRefEnv s u => Ref u a -> Lens' s a
-ref (Ref a k i) f = refs (at i f') where
+ref (Ref a k i) f = refs (var i f') where
   f' Nothing = Just . Lock k <$> f a
   f' (Just (Lock k' a')) = case testEquality k k' of 
      Just Refl -> Just . Lock k <$> f a'
-     Nothing -> error "panic: bad ref env"
+     Nothing -> error "panic: bad ref"
 
 newRef :: (MonadState s m, MonadKey m, HasRefEnv s (KeyState m)) => a -> m (Ref (KeyState m) a)
-newRef a = Ref a <$> newKey <*> (freshRefId <<+= 1)
+newRef a = Ref a <$> newKey <*> (refs %%= allocate 1)
 
 readRef :: (MonadState s m, HasRefEnv s u) => Ref u a -> m a
 readRef = use . ref
@@ -48,4 +61,4 @@ modifyRef r f = ref r %= f
 -- delete a reference that we can prove somehow is not referenced anywhere
 -- this will reset it to its 'default' value that was given when the ref was created
 unsafeDeleteRef :: (MonadState s m, HasRefEnv s u) => Ref u a -> m ()
-unsafeDeleteRef (Ref _ _ i) = refs.at i .= Nothing
+unsafeDeleteRef (Ref _ _ i) = refs.var i .= Nothing
