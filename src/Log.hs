@@ -10,7 +10,7 @@
 module Log 
   ( 
   -- * Logs
-    Log
+    Log(..)
   , newLog, cursors, record
   -- * Cursors
   , Cursor, newCursor, oldCursor, deleteCursor, advance

@@ -36,6 +36,7 @@ library
 
   exposed-modules:
     Aligned
+    Cell
     Free
     Freer
     Key
@@ -49,5 +50,3 @@ library
     Unaligned
     Unified
     Unification
-
-  --  Env

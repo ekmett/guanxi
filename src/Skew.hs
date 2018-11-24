@@ -1,6 +1,8 @@
 {-# language DeriveTraversable #-}
 {-# language RankNTypes #-}
 {-# language LambdaCase #-}
+{-# language MultiParamTypeClasses #-}
+{-# language BangPatterns #-}
 
 -- | Unsafe environment operations
 module Skew
@@ -13,7 +15,7 @@ module Skew
   , allocate
   ) where
 
-import Control.Lens (fusing, Lens')
+import Control.Lens (fusing, Lens', FunctorWithIndex(..), FoldableWithIndex(..), TraversableWithIndex(..))
 import Data.Bits
 import Data.Functor
 import Prelude hiding (lookup)
@@ -27,6 +29,20 @@ data Tree a
 
 data Spine a = Cons !Int !(Tree a) !(Spine a) | Nil
   deriving (Show, Foldable, Functor, Traversable)
+
+instance FunctorWithIndex Int Spine where imapped = itraversed
+instance FoldableWithIndex Int Spine where ifolded = itraversed
+
+instance TraversableWithIndex Int Spine where
+  itraverse f = go 0 where
+    go !_ Nil = pure Nil
+    go i (Cons j t s) = Cons j <$> goTree i j t <*> go (i+j) s
+    goTree _ _ Tip = pure Tip
+    goTree i j (Bin a l r) = Bin <$> f i a <*> goTree (i-1) j' l <*> goTree (i-j'-1) j' r where
+      j' = unsafeShiftR j 1
+    goTree i j (Bin_ l r) = Bin_ <$> goTree (i-1) j' l <*> goTree (i-j'-1) j' r where
+      j' = unsafeShiftR j 1
+  {-# inline itraverse #-}
 
 bin :: Maybe a -> Tree a -> Tree a -> Tree a
 bin Nothing Tip Tip = Tip
@@ -83,7 +99,7 @@ instance Cons_ Spine where
   {-# inline conlike cons_ #-}
 
 data Skew a = Skew {-# unpack #-} !Int {-# unpack #-} !Int !(Spine a)
-  deriving Show
+  deriving (Functor, Foldable, Traversable, Show)
 
 instance Nil Skew where
   nil = Skew 0 0 nil
@@ -96,6 +112,11 @@ instance Cons Skew where
 instance Cons_ Skew where
   cons_ (Skew i j xs) = Skew (i+1) j xs
   {-# inline conlike cons_ #-}
+
+instance FoldableWithIndex Int Skew where ifolded = itraversed
+instance FunctorWithIndex Int Skew where imapped = itraversed
+instance TraversableWithIndex Int Skew where
+  itraverse f (Skew j k s) = Skew j k <$> itraverse (\i -> f (k - 1 - i)) s
 
 -- the allocate i s -- returns an integer j and you now "own" slots [j..j+i-1]
 allocate :: Int -> Skew a -> (Int, Skew a)
@@ -117,12 +138,12 @@ lookupTree :: Int -> Int -> Tree a -> Maybe a
 lookupTree _ _ Tip = Nothing
 lookupTree i j (Bin a l r)
   | i == 0 = Just a
-  | i <= j' = lookupTree i j' l
+  | i <= j' = lookupTree (i-1) j' l
   | otherwise = lookupTree (i-j'-1) j' r
   where j' = unsafeShiftR j 1
 lookupTree i j (Bin_ l r)
   | i == 0 = Nothing
-  | i <= j' = lookupTree i j' l
+  | i <= j' = lookupTree (i-1) j' l
   | otherwise = lookupTree (i-j'-1) j' r
   where j' = unsafeShiftR j 1
 
@@ -152,7 +173,7 @@ tweak i0 j0 (Just a0) = go i0 j0 a0 where
   go :: Int -> Int -> a -> Tree a
   go i j a
     | i == 0 = Bin a Tip Tip
-    | i <= j' = Bin_ (go i j' a) Tip
+    | i <= j' = Bin_ (go (i-1) j' a) Tip
     | otherwise = Bin_ Tip $ go (i-j'-1) j' a
     where j' = unsafeShiftR j 1
 {-# inline tweak #-}
@@ -161,11 +182,11 @@ varTree :: Int -> Int -> Lens' (Tree a) (Maybe a)
 varTree i j f Tip = tweak i j <$> f Nothing
 varTree i j f (Bin a l r)
   | i == 0    = (\ma -> bin ma l r) <$> f (Just a)
-  | i <= j'   = (\l' -> Bin a l' r) <$> varTree i j' f l
+  | i <= j'   = (\l' -> Bin a l' r) <$> varTree (i-1) j' f l
   | otherwise = Bin a l <$> varTree (i-j'-1) j' f r
   where j' = unsafeShiftR j 1
 varTree i j f (Bin_ l r)
   | i == 0    = (\ma -> bin ma l r) <$> f Nothing
-  | i <= j'   = (\l' -> bin_ l' r) <$> varTree i j' f l
+  | i <= j'   = (\l' -> bin_ l' r) <$> varTree (i-1) j' f l
   | otherwise = bin_ l <$> varTree (i-j'-1) j' f r
   where j' = unsafeShiftR j 1
