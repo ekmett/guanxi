@@ -102,12 +102,12 @@ cell (Cell j _ _) f = cells (var j f') where
   f' = fmap Just . f . fromMaybe (Val mempty (pure ()))
 
 newCell
-  :: (MonadState s m, HasEnv s m, MonadKey m, Monoid c)
-  => (a -> m (Maybe c)) -- ^ filtered update function
-  -> Bool               -- ^ keep all history
+  :: (MonadState s m, HasEnv s m, MonadKey m, Semigroup c)
+  => Bool               -- ^ keep all history
   -> Maybe (m ())       -- ^ grounding strategy
+  -> (a -> m (Maybe c)) -- ^ filtered update function
   -> m (Cell m a c)
-newCell u k mstrat = do
+newCell k mstrat u = do
   j <- cells %%= allocate 1
   for_ mstrat $ \strat -> cells.var j ?= Val mempty strat
   Cell j u <$> newLog k
@@ -126,7 +126,7 @@ fire ps = forM_ (Set.maxView ps) $ \ (Propagator m _ _ _, ps') -> do
   fire (ps' <> qs) 
 
 newPropagator
-  :: (MonadState s m, HasEnv s m, Foldable f)
+  :: (MonadState s m, HasEnv s m)
   => Cells -- ^ sources
   -> Cells -- ^ targets
   -> m (Propagators m) -- ^ propagator action
