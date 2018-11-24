@@ -36,15 +36,18 @@ library
 
   exposed-modules:
     Aligned
-    Env
     Free
     Freer
     Key
+    Log
     Logic.Class
     Logic.CPS
     Logic.Naive
     Logic.Reflection
+    Ref
     Skew
     Unaligned
     Unified
     Unification
+
+  --  Env
