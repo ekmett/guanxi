@@ -2,6 +2,7 @@
 {-# language DefaultSignatures #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
+{-# language ViewPatterns #-}
 {-# language UndecidableInstances #-}
 {-# language FunctionalDependencies #-}
 {-# language RankNTypes #-}
@@ -17,125 +18,162 @@
 {-# language TypeOperators #-}
 
 module Cell
-  ( Propagator, newPropagator, fire
-  , Cell, newCell, writeCell, ground
+  ( Propagator(..), newPropagator, newPropagator_
+  , aim, fire
+  , Var(..), newVar, newVar_, fireVars
+  , ground
+  , Sink(..), writeSink
+  , HasCellIds(..)
+  , HasCellEnv(..)
   -- utility
   , Cells, Propagators
-  , propSources, propTargets
   ) where
 
 import Control.Monad.State
 import Control.Lens
 import Data.IntSet as IntSet
 import Data.Foldable as Foldable
+import Data.Functor.Contravariant.Divisible
 import Data.Function (on)
-import Data.Maybe
 import Data.Set as Set -- HashSet?
+import Data.Void
 import Key
-import Log
 import Ref
 import Skew
 
-type Cells = IntSet
+type Cells = IntSet -- TODO: newtype this, users see it
 type Propagators m = Set (Propagator m)  -- TODO: newtype this, users see it
 
 data Propagator m = Propagator
-  { _propagatorAction :: m (Propagators m)
-  , _propSources, _propTargets :: Cells -- TODO: added for future topological analysis 
-  , _propagatorId     :: {-# unpack #-} !Int
+  { propagatorAction :: m ()
+  , propSources, propTargets :: !Cells -- TODO: added for future topological analysis 
+  , propagatorId :: {-# unpack #-} !Int
   }
 
-propSources, propTargets :: Propagator m -> Cells
-propSources = _propSources
-propTargets = _propTargets
-
--- pattern Prop :: m (Propagators m) -> Cells -> Cells -> Int -> Propagator m
--- pattern Prop m s t i <- Propagator m s t i
-
 instance Eq (Propagator m) where
-  (==) = (==) `on` _propagatorId
+  (==) = (==) `on` propagatorId
 
 instance Ord (Propagator m) where
-  compare = compare `on` _propagatorId
+  compare = compare `on` propagatorId
 
-data Val m = Val
+data Cell m = Cell
   { _cellPropagators :: Propagators m -- outbound propagators
   , _cellStrategy    :: m () -- this forces us to be present and grounded
   }
 
--- makeLenses ''Propagator
-makeLenses ''Val
+makeLenses ''Cell
 
-data Cell m a c = Cell 
-  { _varId :: {-# unpack #-} !Int
-  , _varUpdate :: (a -> m (Maybe c))
-  , _varLog :: {-# unpack #-} !(Log (KeyState m) c)
+data Sink m a = Sink 
+  { _cellIds    :: !Cells
+  , _cellUpdate :: a -> m () -- update
   }
 
-instance Eq (Cell m a c) where
-  (==) = (==) `on` _varId
+instance Contravariant (Sink m) where
+  contramap f (Sink m g) = Sink m (g . f)
+ 
+instance Applicative m => Divisible (Sink m) where
+  conquer = Sink mempty $ \_ -> pure ()
+  divide f (Sink s g) (Sink t h) = Sink (s <> t) $ \a -> case f a of 
+     (b, c) -> g b *> h c
 
-instance Ord (Cell m a c) where
-  compare = compare `on` _varId
+instance Applicative m => Decidable (Sink m) where
+  lose f = Sink mempty (absurd . f)
+  choose f (Sink s g) (Sink t h) = Sink (s <> t) $ \a -> case f a of
+     Left b -> g b
+     Right c -> h c
 
-data Env m = Env !(Skew (Val m)) !Int !(RefEnv (KeyState m))
+data CellEnv m = CellEnv
+  !(Skew (Cell m))
+  !Int
+  !(Propagators m) -- pending propagators
+  !(RefEnv (KeyState m))
+  -- TODO: track a deferral flag to delay firing, when we run actions with a fire to come after
+  -- we'll set the flag, letting us batch more activity. this can be more useful once we have a topological
+  -- sort and propagators that exploit logs
 
-class HasRefEnv s (KeyState m) => HasEnv s m | s -> m where
-  env :: Lens' s (Env m)
+class HasRefEnv s (KeyState m) => HasCellEnv s m | s -> m where
+  cellEnv :: Lens' s (CellEnv m)
 
-  cells :: Lens' s (Skew (Val m))
-  cells = env.cells
+  cells :: Lens' s (Skew (Cell m))
+  cells = cellEnv.cells
 
   freshPropagatorId :: Lens' s Int
-  freshPropagatorId = env.freshPropagatorId
+  freshPropagatorId = cellEnv.freshPropagatorId
+  
+  pending :: Lens' s (Propagators m)
+  pending = cellEnv.pending
 
-instance (u ~ KeyState m) => HasRefEnv (Env m) u where
-  refEnv f (Env c p r) = Env c p <$> f r
+instance (u ~ KeyState m) => HasRefEnv (CellEnv m) u where
+  refEnv f (CellEnv c p pp r) = CellEnv c p pp <$> f r
 
-instance HasEnv (Env m) m where
-  env = id
-  cells f (Env c p r) = f c <&> \c' -> Env c' p r
-  freshPropagatorId f (Env c p r) = f p <&> \p' -> Env c p' r
+instance HasCellEnv (CellEnv m) m where
+  cellEnv = id
+  cells f (CellEnv c p pp r) = f c <&> \c' -> CellEnv c' p pp r
+  freshPropagatorId f (CellEnv c p pp r) = f p <&> \p' -> CellEnv c p' pp r
+  pending f (CellEnv c p pp r) = f pp <&> \pp' -> CellEnv c p pp' r
 
-cell :: (HasEnv s m, Applicative m) => Cell m a c -> Lens' s (Val m)
-cell (Cell j _ _) f = cells (var j f') where
-  f' = fmap Just . f . fromMaybe (Val mempty (pure ()))
+class HasCellIds t where
+  cellIds :: t -> Cells
 
-newCell
-  :: (MonadState s m, HasEnv s m, MonadKey m, Semigroup c)
-  => Bool               -- ^ keep all history
-  -> Maybe (m ())       -- ^ grounding strategy
-  -> (a -> m (Maybe c)) -- ^ filtered update function
-  -> m (Cell m a c)
-newCell k mstrat u = do
-  j <- cells %%= allocate 1
-  for_ mstrat $ \strat -> cells.var j ?= Val mempty strat
-  Cell j u <$> newLog k
+instance HasCellIds (Sink m a) where
+  cellIds (Sink s _) = s
 
-writeCell :: (MonadState s m, HasEnv s m) => Cell m a c -> a -> m ()
-writeCell v@(Cell _ u l@Log{}) a = u a >>= \case
-  Nothing -> pure ()
-  Just c -> do
-    record l c -- add this change to the log
-    use (cell v . cellPropagators) >>= fire
+instance HasCellIds Cells where
+  cellIds = id
 
--- horrible but valid schedule, til we have non-monotonic edges
-fire :: (MonadState s m, HasEnv s m) => Propagators m -> m ()
-fire ps = forM_ (Set.maxView ps) $ \ (Propagator m _ _ _, ps') -> do
-  qs <- m
-  fire (ps' <> qs) 
+newtype Var (m :: * -> *) = Var { getVar :: Int }
+  deriving (Eq, Ord, Show)
+
+instance HasCellIds (Var m) where
+  cellIds (Var i) = IntSet.singleton i
+
+newVar_ :: (MonadState s m, HasCellEnv s m) => m (Var m)
+newVar_ = Var <$> (cells %%= allocate 1)
+
+newVar :: (MonadState s m, HasCellEnv s m) => (Var m -> m ()) -> m (Var m)
+newVar strat = do 
+  j@(Var -> vj) <- cells %%= allocate 1
+  cells.var j ?= Cell mempty (strat vj)
+  pure vj
+
+writeSink :: (MonadState s m, HasCellEnv s m) => Sink m a -> a -> m ()
+writeSink (Sink _ u) a = u a *> fire
+
+aim :: (MonadState s m, HasCellEnv s m) => Propagator m -> m ()
+aim p = pending %= Set.insert p
+
+-- horrible but valid schedule, til we have non-monotonic edges at least
+fire :: (MonadState s m, HasCellEnv s m) => m ()
+fire = join $ pending %%= \ ps -> case Set.maxView ps of
+  Just (Propagator m _ _ _, ps') -> (m *> fire, ps')
+  Nothing -> (pure (), ps)
+
+fireVars :: (MonadState s m, HasCellEnv s m, HasCellIds v) => v -> m ()
+fireVars v = do
+  for_ (IntSet.toList (cellIds v)) $ \i -> use (cells.var i) >>= \case
+    Nothing -> pure ()
+    Just (Cell ps _) -> pending <>= ps
+  fire
 
 newPropagator
-  :: (MonadState s m, HasEnv s m)
-  => Cells -- ^ sources
-  -> Cells -- ^ targets
-  -> m (Propagators m) -- ^ propagator action
+  :: (MonadState s m, HasCellEnv s m, HasCellIds x, HasCellIds y)
+  => x -- ^ sources
+  -> y -- ^ targets
+  -> m () -- ^ propagator action
   -> m (Propagator m)
-newPropagator cs ds act = do
+newPropagator (cellIds -> cs) (cellIds -> ds) act = do
   p <- Propagator act cs ds <$> (freshPropagatorId <<+= 1)
   for_ (IntSet.toList cs) $ \c ->
-    cells.var c.anon (Val mempty (pure ())) (const False) . cellPropagators %= Set.insert p
+    cells.var c.anon (Cell mempty (pure ())) (const False) . cellPropagators %= Set.insert p
   pure p
 
-ground :: (MonadState s m, HasEnv s m) => m ()
+newPropagator_ 
+  :: (MonadState s m, HasCellEnv s m, HasCellIds x, HasCellIds y)
+  => x -- ^ sources
+  -> y -- ^ targets
+  -> m () -- ^ propagator action
+  -> m ()
+newPropagator_ x y m = void (newPropagator x y m)
+
+ground :: (MonadState s m, HasCellEnv s m) => m ()
 ground = use cells >>= sequenceOf_ (traverse.cellStrategy)

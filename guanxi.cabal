@@ -24,6 +24,7 @@ library
   build-depends:
     base                >= 4   && < 5,
     containers,
+    contravariant,
     fingertree,
     lens,
     primitive,
@@ -37,6 +38,7 @@ library
   exposed-modules:
     Aligned
     Cell
+    FDVar
     Free
     Freer
     Key
