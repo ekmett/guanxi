@@ -6,6 +6,7 @@
 {-# language UndecidableInstances #-}
 {-# language FunctionalDependencies #-}
 {-# language RankNTypes #-}
+{-# language TupleSections #-}
 {-# language GADTs #-}
 {-# language BangPatterns #-}
 {-# language MultiWayIf #-}
@@ -19,8 +20,8 @@
 
 module Cell
   ( Propagator(..), newPropagator, newPropagator_
-  , aim, fire
-  , Var(..), newVar, newVar_, fireVars
+  , aim, fire_
+  , Var(..), newVar, newVar_, fire
   , ground
   , Sink(..), writeSink
   , HasCellIds(..)
@@ -87,7 +88,8 @@ data CellEnv m = CellEnv
   !Int
   !(Propagators m) -- pending propagators
   !(RefEnv (KeyState m))
-  -- TODO: track a deferral flag to delay firing, when we run actions with a fire to come after
+  !Bool
+  -- TODO: track a deferral flag to delay firing, when we run actions with a fire_ to come after
   -- we'll set the flag, letting us batch more activity. this can be more useful once we have a topological
   -- sort and propagators that exploit logs
 
@@ -103,14 +105,19 @@ class HasRefEnv s (KeyState m) => HasCellEnv s m | s -> m where
   pending :: Lens' s (Propagators m)
   pending = cellEnv.pending
 
+  safety :: Lens' s Bool
+  safety = cellEnv.safety
+
 instance (u ~ KeyState m) => HasRefEnv (CellEnv m) u where
-  refEnv f (CellEnv c p pp r) = CellEnv c p pp <$> f r
+  refEnv f (CellEnv c p pp r s) = f r <&> \r' -> CellEnv c p pp r' s
 
 instance HasCellEnv (CellEnv m) m where
   cellEnv = id
-  cells f (CellEnv c p pp r) = f c <&> \c' -> CellEnv c' p pp r
-  freshPropagatorId f (CellEnv c p pp r) = f p <&> \p' -> CellEnv c p' pp r
-  pending f (CellEnv c p pp r) = f pp <&> \pp' -> CellEnv c p pp' r
+  cells f (CellEnv c p pp r s) = f c <&> \c' -> CellEnv c' p pp r s
+  freshPropagatorId f (CellEnv c p pp r s) = f p <&> \p' -> CellEnv c p' pp r s
+  -- TODO: writing to the pending list with the safety off is dangerous, fix this?
+  pending f (CellEnv c p pp r s) = f pp <&> \pp' -> CellEnv c p pp' r s
+  safety f (CellEnv c p pp r s) = f s <&> CellEnv c p pp r
 
 class HasCellIds t where
   cellIds :: t -> Cells
@@ -137,23 +144,36 @@ newVar strat = do
   pure vj
 
 writeSink :: (MonadState s m, HasCellEnv s m) => Sink m a -> a -> m ()
-writeSink (Sink _ u) a = u a *> fire
+writeSink (Sink _ u) a = scope (u a)
 
 aim :: (MonadState s m, HasCellEnv s m) => Propagator m -> m ()
 aim p = pending %= Set.insert p
 
--- horrible but valid schedule, til we have non-monotonic edges at least
-fire :: (MonadState s m, HasCellEnv s m) => m ()
-fire = join $ pending %%= \ ps -> case Set.maxView ps of
-  Just (Propagator m _ _ _, ps') -> (m *> fire, ps')
+scope :: (MonadState s m, HasCellEnv s m) => m a -> m a
+scope m = join $ safety %%= \s -> (,True) $ do
+  a <- m -- run m with the safety turned on, so we delay firings
+  unless s $ do -- if the safety was already on do nothing
+    safety .= False -- otherwise turn it back off and fire as needed
+    fire_
+  pure a
+
+-- fire _now_
+fire__ :: (MonadState s m, HasCellEnv s m) => m ()
+fire__ = join $ pending %%= \ ps -> case Set.maxView ps of
+  Just (Propagator m _ _ _, ps') -> (m *> fire__, ps')
   Nothing -> (pure (), ps)
 
-fireVars :: (MonadState s m, HasCellEnv s m, HasCellIds v) => v -> m ()
-fireVars v = do
+-- horrible but valid schedule, til we have non-monotonic edges at least
+fire_ :: (MonadState s m, HasCellEnv s m) => m ()
+fire_ = do
+  s <- use safety
+  unless s fire__ 
+
+fire :: (MonadState s m, HasCellEnv s m, HasCellIds v) => v -> m ()
+fire v = scope $ 
   for_ (IntSet.toList (cellIds v)) $ \i -> use (cells.var i) >>= \case
     Nothing -> pure ()
     Just (Cell ps _) -> pending <>= ps
-  fire
 
 newPropagator
   :: (MonadState s m, HasCellEnv s m, HasCellIds x, HasCellIds y)
