@@ -13,6 +13,7 @@ module Skew
   , Cons(..)
   , Cons_(..)
   , allocate
+  , empty
   ) where
 
 import Control.Lens (fusing, Lens', FunctorWithIndex(..), FoldableWithIndex(..), TraversableWithIndex(..))
@@ -100,6 +101,9 @@ instance Cons_ Spine where
 
 data Skew a = Skew {-# unpack #-} !Int {-# unpack #-} !Int !(Spine a)
   deriving (Functor, Foldable, Traversable, Show)
+
+empty :: Skew a
+empty = Skew 0 0 Nil
 
 instance Nil Skew where
   nil = Skew 0 0 nil

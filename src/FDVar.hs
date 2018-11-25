@@ -48,6 +48,11 @@ newFDVar dom = do
   let is_ v a = join $ ref rdom %%= \ s -> (,Set.singleton a) $ when (Set.size s /= 1) $ fire v
   fmap (FDVar rdom) $ newVar $ \v -> readRef rdom >>= Set.foldr (interleave . is_ v) A.empty 
 
+val :: (MonadLogic m, MonadState s m, HasCellEnv s m) => FDVar m a -> m a
+val r = do
+  let is_ a = join $ ref r %%= \ s -> (,Set.singleton a) $ a <$ when (Set.size s /= 1) (fire r)
+  readRef r >>= Set.foldr (interleave . is_) A.empty
+
 shrink :: (MonadState s m, HasCellEnv s m, Alternative m) => FDVar m a -> (Set a -> Set a) -> m ()
 shrink r f = join $ ref r %%= \d@(f -> d') -> (,d') $ do
   guard (not $ Set.null d') -- ensure there is an answer
@@ -68,3 +73,4 @@ lt l r = do
   newPropagator_ r l $ readRef r >>= \ ys -> case Set.maxView ys of
     Nothing -> A.empty
     Just (max_y,_) -> shrink l $ \ xs -> Set.splitMember max_y xs ^. _1
+

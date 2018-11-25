@@ -10,7 +10,7 @@
 
 -- LogicT-compatible references
 module Ref
-  ( Ref, RefEnv(..), HasRefEnv(..)
+  ( Ref, RefEnv(..), HasRefEnv(..), defaultRefEnv
   , Reference(..)
   , ref, newRef, readRef, writeRef, modifyRef, unsafeDeleteRef
   , refId
@@ -54,6 +54,9 @@ instance TestCoercion (Ref u) where
   testCoercion (Ref _ u i) (Ref _ v j) = guard (i == j) *> testCoercion u v
 
 data RefEnv u = RefEnv { _refs :: Skew (Box u) }
+
+defaultRefEnv :: RefEnv u
+defaultRefEnv = RefEnv Skew.empty
 
 makeClassy ''RefEnv
 

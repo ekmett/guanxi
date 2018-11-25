@@ -38,6 +38,7 @@ library
   exposed-modules:
     Aligned
     Cell
+    FD
     FDVar
     Free
     Freer

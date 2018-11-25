@@ -25,7 +25,7 @@ module Cell
   , ground
   , Sink(..), writeSink
   , HasCellIds(..)
-  , HasCellEnv(..)
+  , HasCellEnv(..), CellEnv, defaultCellEnv
   -- utility
   , Cells, Propagators
   ) where
@@ -92,6 +92,9 @@ data CellEnv m = CellEnv
   -- TODO: track a deferral flag to delay firing, when we run actions with a fire_ to come after
   -- we'll set the flag, letting us batch more activity. this can be more useful once we have a topological
   -- sort and propagators that exploit logs
+ 
+defaultCellEnv :: CellEnv m
+defaultCellEnv = CellEnv Skew.empty 0 mempty defaultRefEnv False
 
 class HasRefEnv s (KeyState m) => HasCellEnv s m | s -> m where
   cellEnv :: Lens' s (CellEnv m)
