@@ -18,6 +18,13 @@
 {-# language TypeFamilies #-}
 {-# language TypeOperators #-}
 
+-- |
+-- Copyright :  (c) Edward Kmett 2018
+-- License   :  BSD-2-Clause OR Apache-2.0
+-- Maintainer:  Edward Kmett <ekmett@gmail.com>
+-- Stability :  experimental
+-- Portability: non-portable
+
 module Cell
   ( Propagator(..), newPropagator, newPropagator_
   , aim, fire_
@@ -40,7 +47,7 @@ import Data.Set as Set -- HashSet?
 import Data.Void
 import Key
 import Ref
-import Skew
+import Unaligned.Skew as Skew
 
 type Cells = IntSet -- TODO: newtype this, users see it
 type Propagators m = Set (Propagator m)  -- TODO: newtype this, users see it

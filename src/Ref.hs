@@ -8,6 +8,13 @@
 {-# language GADTs #-}
 {-# language ViewPatterns #-}
 
+-- |
+-- Copyright :  (c) Edward Kmett 2018
+-- License   :  BSD-2-Clause OR Apache-2.0
+-- Maintainer:  Edward Kmett <ekmett@gmail.com>
+-- Stability :  experimental
+-- Portability: non-portable
+--
 -- LogicT-compatible references
 module Ref
   ( Ref, RefEnv(..), HasRefEnv(..), defaultRefEnv
@@ -24,7 +31,7 @@ import Data.Maybe (isJust)
 import Data.Type.Coercion
 import Data.Type.Equality
 import Key
-import Skew
+import Unaligned.Skew as Skew
 
 -- storing 'a' in here leaks the default value while the reference is alive,
 -- but won't cause the explicit reference environment to grow at all

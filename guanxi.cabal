@@ -57,8 +57,8 @@ library
     Logic.Naive
     Logic.Reflection
     Ref
-    Skew
     Unaligned
+    Unaligned.Skew
     Unified
     Unification
 

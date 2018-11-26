@@ -1,5 +1,15 @@
 {-# language GADTs, PolyKinds, RankNTypes #-}
 
+-- |
+-- Copyright :  (c) Edward Kmett 2018
+-- License   :  BSD-2-Clause OR Apache-2.0
+-- Maintainer:  Edward Kmett <ekmett@gmail.com>
+-- Stability :  experimental
+-- Portability: non-portable
+--
+-- Type-aligned sequences in the style of Atze van der Ploeg's 
+-- <http://okmij.org/ftp/Haskell/zseq.pdf Reflection without Remorse>
+
 module Aligned
   ( View(..)
   , Cons(..)
@@ -45,7 +55,7 @@ class Singleton t where
   singleton :: f a b -> t f a b
 
 --------------------------------------------------------------------------------
--- The opposite category
+-- * The opposite category
 --------------------------------------------------------------------------------
 
 newtype Op (f :: k -> k -> Type) (a :: k) (b :: k) = Op { runOp :: f b a }
@@ -55,7 +65,7 @@ instance Category f => Category (Op f) where
   Op f . Op g = Op (g . f)
 
 --------------------------------------------------------------------------------
--- Reversing containers
+-- * Reversing containers
 --------------------------------------------------------------------------------
 
 newtype Rev t f a b = Rev { runRev :: t (Op f) b a }

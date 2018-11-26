@@ -3,14 +3,21 @@
 {-# language LambdaCase #-}
 {-# language MultiParamTypeClasses #-}
 {-# language BangPatterns #-}
+{-# language ViewPatterns #-}
 
--- | Unsafe environment operations
-module Skew
+-- |
+-- Copyright :  (c) Edward Kmett 2018
+-- License   :  BSD-2-Clause OR Apache-2.0
+-- Maintainer:  Edward Kmett <ekmett@gmail.com>
+-- Stability :  experimental
+-- Portability: non-portable
+--
+-- Skew binary random access lists with cheaper "missing" entries
+
+module Unaligned.Skew
   ( Skew(..)
   , var, var'
   , lookup
-  , Nil(..)
-  , Cons(..)
   , Cons_(..)
   , allocate
   , empty
@@ -21,6 +28,18 @@ import Data.Bits
 import Data.Functor
 import Prelude hiding (lookup)
 import Unaligned
+
+shr :: Int -> Int
+shr j = unsafeShiftR j 1
+{-# inline shr #-}
+
+smear :: Int -> Int
+smear i0 = i5 .|. unsafeShiftR i5 32 where
+      i5 = i4 .|. unsafeShiftR i4 16
+      i4 = i3 .|. unsafeShiftR i3 8
+      i3 = i2 .|. unsafeShiftR i2 4
+      i2 = i1 .|. unsafeShiftR i1 2
+      i1 = i0 .|. unsafeShiftR i0 1
 
 data Tree a
   = Bin a !(Tree a) !(Tree a)
@@ -39,10 +58,8 @@ instance TraversableWithIndex Int Spine where
     go !_ Nil = pure Nil
     go i (Cons j t s) = Cons j <$> goTree i j t <*> go (i+j) s
     goTree _ _ Tip = pure Tip
-    goTree i j (Bin a l r) = Bin <$> f i a <*> goTree (i-1) j' l <*> goTree (i-j'-1) j' r where
-      j' = unsafeShiftR j 1
-    goTree i j (Bin_ l r) = Bin_ <$> goTree (i-1) j' l <*> goTree (i-j'-1) j' r where
-      j' = unsafeShiftR j 1
+    goTree i (shr -> j) (Bin a l r) = Bin <$> f i a <*> goTree (i-1) j l <*> goTree (i-j-1) j r
+    goTree i (shr -> j) (Bin_ l r) = Bin_ <$> goTree (i-1) j l <*> goTree (i-j-1) j r
   {-# inline itraverse #-}
 
 bin :: Maybe a -> Tree a -> Tree a -> Tree a
@@ -55,14 +72,6 @@ bin_ :: Tree a -> Tree a -> Tree a
 bin_ Tip Tip = Tip
 bin_ l r = Bin_ l r
 {-# inline conlike bin_ #-}
-
-smear :: Int -> Int
-smear i0 = i5 .|. unsafeShiftR i5 32 where
-      i1 = i0 .|. unsafeShiftR i0 1
-      i2 = i1 .|. unsafeShiftR i1 2
-      i3 = i2 .|. unsafeShiftR i2 4
-      i4 = i3 .|. unsafeShiftR i3 8
-      i5 = i4 .|. unsafeShiftR i4 16
 
 padSpine :: Int -> Spine a -> Spine a
 padSpine 0 xs = xs
@@ -79,7 +88,7 @@ padSpine i xs@(Cons j x ys@(Cons k y zs))
 padSpine' :: Int -> Int -> Spine a -> Spine a
 padSpine' 0 _ ws = ws
 padSpine' i j ws
-  | i >= j = padSpine' (i - j) j $ Cons j Tip ws
+  | i >= j = padSpine' (i-j) j $ Cons j Tip ws
   | otherwise = padSpine' i (unsafeShiftR j 1) ws
 
 instance Nil Spine where
@@ -120,7 +129,7 @@ instance Cons_ Skew where
 instance FoldableWithIndex Int Skew where ifolded = itraversed
 instance FunctorWithIndex Int Skew where imapped = itraversed
 instance TraversableWithIndex Int Skew where
-  itraverse f (Skew j k s) = Skew j k <$> itraverse (\i -> f (k - 1 - i)) s
+  itraverse f (Skew j k s) = Skew j k <$> itraverse (\i -> f (k-1-i)) s
 
 -- the allocate i s -- returns an integer j and you now "own" slots [j..j+i-1]
 allocate :: Int -> Skew a -> (Int, Skew a)
@@ -140,16 +149,14 @@ lookupSpine i (Cons j t xs)
 
 lookupTree :: Int -> Int -> Tree a -> Maybe a
 lookupTree _ _ Tip = Nothing
-lookupTree i j (Bin a l r)
+lookupTree i (shr -> j) (Bin a l r)
   | i == 0 = Just a
-  | i <= j' = lookupTree (i-1) j' l
-  | otherwise = lookupTree (i-j'-1) j' r
-  where j' = unsafeShiftR j 1
-lookupTree i j (Bin_ l r)
+  | i <= j = lookupTree (i-1) j l
+  | otherwise = lookupTree (i-j-1) j r
+lookupTree i (shr -> j) (Bin_ l r)
   | i == 0 = Nothing
-  | i <= j' = lookupTree (i-1) j' l
-  | otherwise = lookupTree (i-j'-1) j' r
-  where j' = unsafeShiftR j 1
+  | i <= j = lookupTree (i-1) j l
+  | otherwise = lookupTree (i-j-1) j r
 
 -- type Lens' s a = forall f. Functor f => (a -> f a) -> s -> f s
 
@@ -175,22 +182,19 @@ tweak :: Int -> Int -> Maybe a -> Tree a
 tweak _ _ Nothing = Tip
 tweak i0 j0 (Just a0) = go i0 j0 a0 where
   go :: Int -> Int -> a -> Tree a
-  go i j a
+  go i (shr -> j) a
     | i == 0 = Bin a Tip Tip
-    | i <= j' = Bin_ (go (i-1) j' a) Tip
-    | otherwise = Bin_ Tip $ go (i-j'-1) j' a
-    where j' = unsafeShiftR j 1
+    | i <= j = Bin_ (go (i-1) j a) Tip
+    | otherwise = Bin_ Tip $ go (i-j-1) j a
 {-# inline tweak #-}
 
 varTree :: Int -> Int -> Lens' (Tree a) (Maybe a)
 varTree i j f Tip = tweak i j <$> f Nothing
-varTree i j f (Bin a l r)
+varTree i (shr -> j) f (Bin a l r)
   | i == 0    = (\ma -> bin ma l r) <$> f (Just a)
-  | i <= j'   = (\l' -> Bin a l' r) <$> varTree (i-1) j' f l
-  | otherwise = Bin a l <$> varTree (i-j'-1) j' f r
-  where j' = unsafeShiftR j 1
-varTree i j f (Bin_ l r)
+  | i <= j   = (\l' -> Bin a l' r) <$> varTree (i-1) j f l
+  | otherwise = Bin a l <$> varTree (i-j-1) j f r
+varTree i (shr -> j) f (Bin_ l r)
   | i == 0    = (\ma -> bin ma l r) <$> f Nothing
-  | i <= j'   = (\l' -> bin_ l' r) <$> varTree (i-1) j' f l
-  | otherwise = bin_ l <$> varTree (i-j'-1) j' f r
-  where j' = unsafeShiftR j 1
+  | i <= j   = (\l' -> bin_ l' r) <$> varTree (i-1) j f l
+  | otherwise = bin_ l <$> varTree (i-j-1) j f r

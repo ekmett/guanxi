@@ -7,6 +7,12 @@
 {-# language GADTs #-}
 
 -- |
+-- Copyright :  (c) Edward Kmett 2018
+-- License   :  BSD-2-Clause OR Apache-2.0
+-- Maintainer:  Edward Kmett <ekmett@gmail.com>
+-- Stability :  experimental
+-- Portability: non-portable
+--
 -- This construction is based on
 -- <https://people.seas.harvard.edu/~pbuiras/publications/KeyMonadHaskell2016.pdf The Key Monad: Type-Safe Unconstrained Dynamic Typing>
 -- by Atze van der Ploeg, Koen Claessen, and Pablo Buiras
