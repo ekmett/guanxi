@@ -1,5 +1,7 @@
 {-# language GADTs #-}
 {-# language ExistentialQuantification #-}
+{-# language ViewPatterns #-}
+{-# language PatternSynonyms #-}
 
 -- |
 -- Copyright :  (c) Edward Kmett 2018
@@ -47,6 +49,10 @@ view (F h t) = case h of
 
 unview :: FreeView f a -> Free f a
 unview x = F x id
+
+pattern V :: Functor f => FreeView f a -> Free f a
+pattern V a <- (view -> a) where
+  V b = unview b
 
 free :: f (Free f a) -> Free f a
 free fx = F (Free fx id) id

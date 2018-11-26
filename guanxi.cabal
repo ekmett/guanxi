@@ -45,12 +45,14 @@ library
 
   exposed-modules:
     Aligned
-    Aligned.Internal
     Cell
     FD
     FDVar
     Free
     Freer
+    Internal.Aligned
+    Internal.Skew
+    Internal.Unaligned
     Key
     Log
     Logic.Class
@@ -59,8 +61,6 @@ library
     Logic.Reflection
     Ref
     Unaligned
-    Unaligned.Internal
-    Unaligned.Skew
     Unified
     Unification
 

@@ -16,4 +16,4 @@ module Unaligned
   , pattern Snoc
   ) where
 
-import Unaligned.Internal
+import Internal.Unaligned

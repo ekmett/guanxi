@@ -31,7 +31,7 @@ import Data.Maybe (isJust)
 import Data.Type.Coercion
 import Data.Type.Equality
 import Key
-import Unaligned.Skew as Skew
+import Internal.Skew as Skew
 
 -- storing 'a' in here leaks the default value while the reference is alive,
 -- but won't cause the explicit reference environment to grow at all

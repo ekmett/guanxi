@@ -3,7 +3,7 @@
 {-# language PatternSynonyms #-}
 {-# language ViewPatterns #-}
 
-module Unaligned.Internal
+module Internal.Unaligned
   ( View(..)
   , Cons(..)
   , Uncons(..)

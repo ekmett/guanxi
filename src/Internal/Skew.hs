@@ -20,7 +20,7 @@
 -- by Bender, Kuper, Byrd and Friedman
 --
 -- Note: @cons@ and @nil@ are supplied by @Unaligned@
-module Unaligned.Skew
+module Internal.Skew
   ( Skew
   , var, var'
   , lookup

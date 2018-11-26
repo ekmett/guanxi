@@ -45,9 +45,9 @@ import Data.Functor.Contravariant.Divisible
 import Data.Function (on)
 import Data.Set as Set -- HashSet?
 import Data.Void
+import Internal.Skew as Skew
 import Key
 import Ref
-import Unaligned.Skew as Skew
 
 type Cells = IntSet -- TODO: newtype this, users see it
 type Propagators m = Set (Propagator m)  -- TODO: newtype this, users see it

@@ -27,4 +27,4 @@ module Aligned
   , pattern Nil
   ) where
 
-import Aligned.Internal
+import Internal.Aligned

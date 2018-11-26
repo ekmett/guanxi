@@ -1,5 +1,7 @@
 {-# language GADTs #-}
 {-# language DeriveTraversable #-}
+{-# language ViewPatterns #-}
+{-# language PatternSynonyms #-}
 
 -- |
 -- Copyright :  (c) Edward Kmett 2018
@@ -22,6 +24,10 @@ data Free f a where
 
 data FreeView f a = Pure a | Free (f (Free f a))
   deriving (Functor, Foldable, Traversable)
+
+pattern V :: Functor f => FreeView f a -> Free f a
+pattern V a <- (view -> a) where
+  V b = unview b
 
 view :: Functor f => Free f a -> FreeView f a
 view (F h t) = case h of
