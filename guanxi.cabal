@@ -17,6 +17,11 @@ extra-source-files:
   CHANGELOG.md
   README.md
   Warning.hs
+  test.sh
+
+source-repository head
+  type: git
+  location: git://github.com/ekmett/guanxi.git
 
 custom-setup
   setup-depends:
@@ -24,12 +29,10 @@ custom-setup
     Cabal,
     cabal-doctest >= 1 && <1.1
 
-
-source-repository head
-  type: git
-  location: git://github.com/ekmett/guanxi.git
-
 library
+  hs-source-dirs: src
+  ghc-options: -Wall -Wextra
+  default-language: Haskell2010
   build-depends:
     base                >= 4   && < 5,
     containers,
@@ -39,10 +42,6 @@ library
     primitive,
     transformers        >= 0.5.5 && < 0.6,
     mtl                 >= 2.2.2 && < 2.3
-
-  hs-source-dirs: src
-  ghc-options: -Wall -Wextra
-  default-language: Haskell2010
 
   exposed-modules:
     Aligned
@@ -64,6 +63,7 @@ library
     Unification
 
 test-suite doctests
+  default-language: Haskell2010
   type:    exitcode-stdio-1.0
   main-is: doctests.hs
   ghc-options: -Wall -threaded
@@ -74,6 +74,7 @@ test-suite doctests
     doctest   >= 0.11.1 && <0.17
 
 test-suite spec
+  default-language: Haskell2010
   type: exitcode-stdio-1.0
   hs-source-dirs: t
   build-tool-depends: hspec-discover:hspec-discover
