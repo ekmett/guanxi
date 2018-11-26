@@ -4,6 +4,7 @@
 {-# language MultiParamTypeClasses #-}
 {-# language BangPatterns #-}
 {-# language ViewPatterns #-}
+{-# language ExplicitNamespaces #-}
 
 -- |
 -- Copyright :  (c) Edward Kmett 2018
@@ -12,18 +13,30 @@
 -- Stability :  experimental
 -- Portability: non-portable
 --
--- Skew binary random access lists with cheaper "missing" entries
-
+-- Skew-binary random-access lists with cheaper missing entries.
+-- This is constructed in a similar fashion to the @desbral@
+-- implementation from 
+-- <https://users.soe.ucsc.edu/~lkuper/papers/walk.pdf Efficient representation of triangular substititons: A comparison in miniKanren>
+-- by Bender, Kuper, Byrd and Friedman
+--
+-- Note: @cons@ and @nil@ are supplied by @Unaligned@
 module Unaligned.Skew
-  ( Skew(..)
+  ( Skew
   , var, var'
   , lookup
   , Cons_(..)
   , allocate
   , empty
+  , size
   ) where
 
-import Control.Lens (fusing, Lens', FunctorWithIndex(..), FoldableWithIndex(..), TraversableWithIndex(..))
+import Control.Lens
+  ( fusing
+  , Lens'
+  , FunctorWithIndex(..)
+  , FoldableWithIndex(..)
+  , TraversableWithIndex(..)
+  )
 import Data.Bits
 import Data.Functor
 import Prelude hiding (lookup)
@@ -47,7 +60,7 @@ data Tree a
   | Tip
   deriving (Show, Foldable, Functor, Traversable)
 
-data Spine a = Cons !Int !(Tree a) !(Spine a) | Nil
+data Spine a = C !Int !(Tree a) !(Spine a) | N
   deriving (Show, Foldable, Functor, Traversable)
 
 instance FunctorWithIndex Int Spine where imapped = itraversed
@@ -55,8 +68,8 @@ instance FoldableWithIndex Int Spine where ifolded = itraversed
 
 instance TraversableWithIndex Int Spine where
   itraverse f = go 0 where
-    go !_ Nil = pure Nil
-    go i (Cons j t s) = Cons j <$> goTree i j t <*> go (i+j) s
+    go !_ N = pure N
+    go i (C j t s) = C j <$> goTree i j t <*> go (i+j) s
     goTree _ _ Tip = pure Tip
     goTree i (shr -> j) (Bin a l r) = Bin <$> f i a <*> goTree (i-1) j l <*> goTree (i-j-1) j r
     goTree i (shr -> j) (Bin_ l r) = Bin_ <$> goTree (i-1) j l <*> goTree (i-j-1) j r
@@ -75,44 +88,51 @@ bin_ l r = Bin_ l r
 
 padSpine :: Int -> Spine a -> Spine a
 padSpine 0 xs = xs
-padSpine i Nil = padSpine' i (smear i) Nil
-padSpine i xs@(Cons j x Nil)
-  | i >= j+1  = padSpine (i-j+1) $ Cons (j+j+1) (bin_ Tip x) Nil
+padSpine i N = padSpine' i (smear i) N
+padSpine i xs@(C j x N)
+  | i >= j+1  = padSpine (i-j+1) $ C (j+j+1) (bin_ Tip x) N
   | otherwise = padSpine' i (unsafeShiftR j 1) xs
-padSpine i xs@(Cons j x ys@(Cons k y zs))
+padSpine i xs@(C j x ys@(C k y zs))
   -- climb up and inflate heads as needed
-  | j == k    = padSpine (i-1)   $ Cons (j+k+1) (bin_ x y) zs
-  | i >= j+1  = padSpine (i-j+1) $ Cons (j+j+1) (bin_ Tip x) ys
+  | j == k    = padSpine (i-1)   $ C (j+k+1) (bin_ x y) zs
+  | i >= j+1  = padSpine (i-j+1) $ C (j+j+1) (bin_ Tip x) ys
   | otherwise = padSpine' i (unsafeShiftR j 1) xs
 
 padSpine' :: Int -> Int -> Spine a -> Spine a
 padSpine' 0 _ ws = ws
 padSpine' i j ws
-  | i >= j = padSpine' (i-j) j $ Cons j Tip ws
+  | i >= j = padSpine' (i-j) j $ C j Tip ws
   | otherwise = padSpine' i (unsafeShiftR j 1) ws
 
 instance Nil Spine where
-  nil = Nil
+  nil = N
   {-# inline conlike nil #-}
 
 instance Cons Spine where
-  cons a (Cons i x (Cons j y zs)) | i == j = Cons (i+j+1) (Bin a x y) zs
-  cons a xs = Cons 1 (Bin a Tip Tip) xs
+  cons a (C i x (C j y zs)) | i == j = C (i+j+1) (Bin a x y) zs
+  cons a xs = C 1 (Bin a Tip Tip) xs
   {-# inline conlike cons #-}
 
 class Cons_ t where
   cons_ :: t a -> t a
 
 instance Cons_ Spine where
-  cons_ (Cons i x (Cons j y zs)) | i == j = Cons (i+j+1) (bin_ x y) zs
-  cons_ xs = Cons 1 Tip xs
+  cons_ (C i x (C j y zs)) | i == j = C (i+j+1) (bin_ x y) zs
+  cons_ xs = C 1 Tip xs
   {-# inline conlike cons_ #-}
 
 data Skew a = Skew {-# unpack #-} !Int {-# unpack #-} !Int !(Spine a)
   deriving (Functor, Foldable, Traversable, Show)
 
+-- | The empty skew-binary random-access list
+-- >>> size empty
+-- 0
 empty :: Skew a
-empty = Skew 0 0 Nil
+empty = Skew 0 0 N
+
+-- | Number of allocated nodes
+size :: Skew a -> Int
+size (Skew i _ _) = i
 
 instance Nil Skew where
   nil = Skew 0 0 nil
@@ -131,19 +151,37 @@ instance FunctorWithIndex Int Skew where imapped = itraversed
 instance TraversableWithIndex Int Skew where
   itraverse f (Skew j k s) = Skew j k <$> itraverse (\i -> f (k-1-i)) s
 
--- the allocate i s -- returns an integer j and you now "own" slots [j..j+i-1]
+-- | @allocate i s@ returns an integer @j@, and an updated skew-binary random-access
+-- list such that slots @[j..j+i-1]@ are usable and are initialized to Nothing
+--
+-- >>> size $ snd $ allocate 10 empty
+-- 10
+--
+-- >>> lookup 0 $ snd $ allocate 1 empty
+-- Nothing
 allocate :: Int -> Skew a -> (Int, Skew a)
 allocate i (Skew j k xs) = (j, Skew (j+i) k xs)
 
+-- | @lookup@ indexes into the skew-binary random-access list from the tail end
+-- so that names are stable under @cons@ and @allocate@
+--
+-- >>> lookup 0 $ cons "world" empty
+-- Just "world"
+--
+-- >>> lookup 0 $ cons "hello" $ cons "world" empty
+-- Just "world"
+--
+-- >>> lookup 1 $ cons "hello" $ cons "world" empty
+-- Just "hello"
 lookup :: Int -> Skew a -> Maybe a
 lookup i (Skew j k xs)
   | i > j     = error "variable impossibly new"
-  | i > k     = Nothing
+  | i >= k    = Nothing
   | otherwise = lookupSpine (k - i - 1) xs
 
 lookupSpine :: Int -> Spine a -> Maybe a
-lookupSpine _ Nil = error "variable impossibly old"
-lookupSpine i (Cons j t xs)
+lookupSpine _ N = error "variable impossibly old"
+lookupSpine i (C j t xs)
   | i < j     = lookupTree i j t
   | otherwise = lookupSpine (i - j) xs
 
@@ -172,10 +210,10 @@ var' i f (Skew j k xs)
   | otherwise = Skew j k <$> varSpine (k - i - 1) f xs
 
 varSpine :: Int -> Lens' (Spine a) (Maybe a)
-varSpine _ _ Nil = error "variable impossibly old"
-varSpine i f (Cons j t xs)
-  | i < j     = (\t' -> Cons j t' xs) <$> varTree i j f t
-  | otherwise = Cons j t <$> varSpine (i - j) f xs
+varSpine _ _ N = error "variable impossibly old"
+varSpine i f (C j t xs)
+  | i < j     = (\t' -> C j t' xs) <$> varTree i j f t
+  | otherwise = C j t <$> varSpine (i - j) f xs
 
 -- place a fresh leaf down inside a tree appropriately
 tweak :: Int -> Int -> Maybe a -> Tree a

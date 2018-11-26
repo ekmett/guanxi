@@ -45,6 +45,7 @@ library
 
   exposed-modules:
     Aligned
+    Aligned.Internal
     Cell
     FD
     FDVar
@@ -58,6 +59,7 @@ library
     Logic.Reflection
     Ref
     Unaligned
+    Unaligned.Internal
     Unaligned.Skew
     Unified
     Unification
