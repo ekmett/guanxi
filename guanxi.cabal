@@ -6,15 +6,24 @@ license:       BSD-2-Clause OR Apache-2.0
 license-file:  LICENSE.md
 author:        Edward A. Kmett
 maintainer:    Edward A. Kmett <ekmett@gmail.com>
-stability:     provisional
+stability:     experimental
 homepage:      http://github.com/ekmett/guanxi/
 bug-reports:   http://github.com/ekmett/guanxi/issues
 copyright:     Copyright (C) 2018 Edward A. Kmett
 synopsis:      Relational programming
 description:   Relational programming.
-build-type:    Simple
-
+build-type:    Custom
 extra-source-files:
+  CHANGELOG.md
+  README.md
+  Warning.hs
+
+custom-setup
+  setup-depends:
+    base >= 4 && <5,
+    Cabal,
+    cabal-doctest >= 1 && <1.1
+
 
 source-repository head
   type: git
@@ -53,3 +62,26 @@ library
     Unaligned
     Unified
     Unification
+
+test-suite doctests
+  type:    exitcode-stdio-1.0
+  main-is: doctests.hs
+  ghc-options: -Wall -threaded
+  hs-source-dirs: t
+  build-depends:
+    base      >= 4,
+    guanxi,
+    doctest   >= 0.11.1 && <0.17
+
+test-suite spec
+  type: exitcode-stdio-1.0
+  hs-source-dirs: t
+  build-tool-depends: hspec-discover:hspec-discover
+  main-is: spec.hs
+  ghc-options: -Wall -threaded -rtsopts
+
+  build-depends:
+    base             >= 4    && < 5,
+    guanxi,
+    generic-deriving >= 1.11 && < 2,
+    hspec            >= 2    && < 3
