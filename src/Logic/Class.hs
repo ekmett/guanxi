@@ -27,8 +27,8 @@ import Unaligned
 class MonadPlus m => MonadLogic m where
   -- |
   -- @
-  -- msplit mzero                == return Nothing
-  -- msplit (return a `mplus` m) == return (Just (a, m))
+  -- msplit empty ≡ pure Empty
+  -- msplit (pure a <|> m) == pure (a :&: m)
   -- @
   msplit :: m a -> m (View a (m a)) 
   
@@ -144,11 +144,11 @@ instance (MonadLogic m, Monoid w) => MonadLogic (Lazy.WriterT w m) where
 
 -- |
 -- @
--- msplit >=> reflect == m
+-- msplit >=> reflect ≡ id
 -- @
-reflect :: MonadLogic m => View a (m a) -> m a
+reflect :: Alternative m => View a (m a) -> m a
 reflect Empty = empty
-reflect (a :&: m) = return a `mplus` m
+reflect (a :&: m) = pure a <|> m
 
 lnot :: MonadLogic m => m a -> m ()
 lnot m = ifte (once m) (const mzero) (return ())

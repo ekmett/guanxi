@@ -132,6 +132,9 @@ instance HasCellEnv (CellEnv m) m where
 class HasCellIds t where
   cellIds :: t -> Cells
 
+instance HasCellIds () where
+  cellIds = mempty
+
 instance HasCellIds (Sink m a) where
   cellIds (Sink s _) = s
 

@@ -50,6 +50,7 @@ library
     FDVar
     Free
     Freer
+    Future
     Internal.Aligned
     Internal.Skew
     Internal.Unaligned
@@ -60,6 +61,7 @@ library
     Logic.Naive
     Logic.Reflection
     Par
+    Par.Class
     Promise
     Ref
     Unaligned
