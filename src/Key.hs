@@ -41,6 +41,7 @@ newtype Key s a = Key (MutVar s (Proxy a))
   deriving Eq
 
 instance TestEquality (Key s) where
+  -- testEquality :: Key s a -> Key s b -> Maybe (a :~: b)
   testEquality (Key s) (Key t)
     | s == unsafeCoerce t = Just (unsafeCoerce Refl)
     | otherwise           = Nothing
@@ -58,7 +59,11 @@ class Monad m => MonadKey m where
   type KeyState m = PrimState m
   -- TODO: we can't use PrimState for this it is class associated
   newKey :: m (Key (KeyState m) a)
-  default newKey :: (m ~ t n, MonadTrans t, MonadKey n, KeyState m ~ KeyState n) =>  m (Key (KeyState m) a)
+  default newKey
+    :: (m ~ t n
+       , MonadTrans t, MonadKey n
+       , KeyState m ~ KeyState n
+       ) => m (Key (KeyState m) a)
   newKey = lift newKey
   {-# inline newKey #-}
 

@@ -49,7 +49,13 @@ instance HasCellIds (FDVar m a) where
 instance (u ~ KeyState m) => Reference (FDVar m a) u (Set a) where
   reference (FDVar r _) = r
 
-newFDVar :: (MonadLogic m, MonadKey m, MonadState s m, HasCellEnv s m, Ord a) => Set a -> m (FDVar m a)
+newFDVar
+  :: ( MonadLogic m
+     , MonadKey m
+     , MonadState s m
+     , HasCellEnv s m
+     , Ord a
+     ) => Set a -> m (FDVar m a)
 newFDVar dom = do
   rdom <- newRef dom
   let is_ v a = join $ ref rdom %%= \ s -> (,Set.singleton a) $ when (Set.size s /= 1) $ fire v

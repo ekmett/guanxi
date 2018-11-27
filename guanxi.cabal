@@ -59,6 +59,8 @@ library
     Logic.CPS
     Logic.Naive
     Logic.Reflection
+    Par
+    Promise
     Ref
     Unaligned
     Unified
