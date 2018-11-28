@@ -69,8 +69,8 @@ library
     Tactic
     Unaligned.Base
     Unaligned.Internal
-    Unification
     Unification.Class
+    Unification.Meta
 
 test-suite doctests
   default-language: Haskell2010
