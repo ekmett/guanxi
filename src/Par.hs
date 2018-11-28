@@ -5,6 +5,7 @@
 {-# language FunctionalDependencies #-}
 {-# language FlexibleInstances #-}
 {-# language UndecidableInstances #-}
+{-# language FlexibleContexts #-}
 {-# language DeriveFunctor #-}
 {-# language GeneralizedNewtypeDeriving #-}
 {-# language PatternSynonyms #-}
@@ -13,15 +14,17 @@
 module Par
   ( ParEnv(..), HasParEnv(..)
   , Par(Par), runPar
+  , statePar
+  , parState
+  , defaultParEnv
   ) where
 
-import Cell
 import Control.Monad hiding (fail)
 import Control.Monad.Cont hiding (fail) -- fix this API!
 import Control.Monad.Fail
 import Control.Monad.Primitive
 import Control.Monad.Reader.Class
-import Control.Monad.State.Class
+import Control.Monad.State.Strict hiding (fail) -- fix this API!
 import Control.Applicative
 import Control.Lens hiding (Empty, snoc, uncons)
 import Key
@@ -31,72 +34,104 @@ import Prelude hiding (fail)
 import Ref
 import Unaligned
 
-newtype ParEnv m = ParEnv { _todo :: Q (m ()) }
+type Task m = ParEnv m -> m (ParEnv m)
+
+newtype ParEnv m = ParEnv { _todo :: Q (Task m) }
+
+defaultParEnv :: ParEnv m
+defaultParEnv = ParEnv Nil
 
 makeClassy ''ParEnv
 
-newtype Par m a = ParT (ContT () m a)
-  deriving (Functor, Applicative, Monad, MonadIO, MonadTrans, MonadCont)
+statePar :: (Alternative m, MonadKey m, MonadState s m, HasRefEnv s (KeyState m)) => Par m a -> StateT (ParEnv m) m a
+statePar (Par m) = StateT $ \s -> do
+  r <- newRef Nothing
+  s' <- m (\ a s' -> s' <$ (ref r ?= a)) s
+  readRef r >>= \case
+    Nothing -> empty
+    Just a -> pure (a, s')
 
-{-# complete Par #-}
+newtype Par m a = Par
+  { runPar :: (a -> Task m) -> Task m
+  } deriving Functor
+
+parState :: Monad m => StateT (ParEnv m) m a -> Par m a
+parState (StateT m) = Par $ \k s -> do
+  (a,s') <- m s
+  k a s'
+
+instance Applicative (Par m) where
+  pure x  = Par $ \k -> k x
+  Par f <*> Par v = Par $ \ c -> f $ \ g -> v (c . g)
+
+instance Monad (Par m) where
+  Par m >>= k = Par $ \ c -> m $ \ x -> runPar (k x) c
+  -- fail s = Par $ \_ -> fail s
+
+instance MonadTrans Par where
+  lift m = Par $ \k s -> m >>= \a -> k a s
+
+instance MonadIO m => MonadIO (Par m) where
+  liftIO = lift . liftIO
 
 instance MonadKey m => MonadKey (Par m) where
   type KeyState (Par m) = KeyState m
   newKey = lift newKey
 
+-- dangerous
 instance PrimMonad m => PrimMonad (Par m) where
   type PrimState (Par m) = PrimState m
   primitive f = lift (primitive f)
 
-pattern Par :: ((a -> m ()) -> m ()) -> Par m a
-pattern Par m = ParT (ContT m)
+instance MonadState s m => MonadState s (Par m) where
+  get = lift get
+  put = lift . put
+  state = lift . state
 
-runPar :: Par m a -> (a -> m ()) -> m ()
-runPar (Par m) = m
+instance MonadReader e m => MonadReader e (Par m) where
+  ask = lift ask
+  local f (Par m) = Par $ \k s -> do
+    r <- ask
+    local f $ m (\a -> local (const r) . k a) s -- (local (\_ -> r) . k) s
+   -- l f _ -- $ m _ s -- (l (\_ -> r) . k) s
 
-deriving instance MonadState s m => MonadState s (Par m)
-deriving instance MonadReader e m => MonadReader e (Par m)
-
-instance (MonadState s m, HasParEnv s m, HasCellEnv s m, MonadLogic m, MonadKey m) => MonadLogic (Par m) where
-  -- msplit m = Par $ \k -> runPar m (\a -> k (a :&: m)) <|> k Empty  -- uses the wrong (<|>)
-  msplit m = Par $ \k -> do
+instance (MonadState s m, HasRefEnv s (KeyState m), MonadLogic m, MonadKey m) => MonadLogic (Par m) where
+  msplit m = Par $ \k s -> do
     fired <- newRef False
-    runPar m $ \a -> do
+    s'' <- flip (runPar m) s $ \a s' -> do
       ref fired .= True
-      k (a :&: m)
-    b <- readRef fired 
-    unless b $ k Empty
+      k (a :&: m) s'
+    b <- use $ ref fired
+    if b then pure s'' else k Empty s''
+
+apply :: (a -> b, a) -> b
+apply (f,x) = f x
 
 -- halt and catch fire
-hcf :: (MonadState s m, HasParEnv s m) => m ()
-hcf = join $ todo %%= \xss -> case uncons xss of
+hcf :: Applicative m => Task m -- ParEnv m -> m (ParEnv m)
+hcf s = apply $ s & todo %%~ \xss -> case uncons xss of
   x :&: xs -> (x, xs)
-  Empty -> (pure (), Nil) -- everybody is happy in this universe, it can now end
-  
-instance (MonadState s m, HasParEnv s m) => MonadPar (Par m) where
-  yield = Par $ \k ->
-    join $ todo %%= \xss -> case uncons xss of
+  Empty -> (pure, Nil)
+
+instance MonadCont (Par m) where
+  callCC f = Par $ \ c -> runPar (f (\ x -> Par $ \ _ -> c x)) c
+
+instance Monad m => MonadPar (Par m) where
+  yield = Par $ \k s ->
+    apply $ s & todo %%~ \xss -> case uncons xss of
       x :&: xs -> (x, xs `snoc` k ())
       Empty    -> (k (), Nil)
 
   halt = Par $ \_ -> hcf
-  fork m = lift $ todo %= \ys -> snoc ys $ runPar m $ \_ -> hcf
+  fork m = parState $ todo %= \ys -> snoc ys $ runPar m $ \_ -> hcf
 
-instance (MonadFail m, MonadState s m, HasParEnv s m) => MonadFail (Par m) where
-  fail s = Par $ \_ -> fail s
+instance MonadFail m => MonadFail (Par m) where
+  fail s = Par $ \_ _ -> fail s
 
-instance
-  ( MonadState s m
-  , HasParEnv s m
-  , Alternative m
-  ) => Alternative (Par m) where
-  empty = Par $ \_ -> empty
-  Par m <|> Par n = Par $ \k -> m k <|> n k
+instance Alternative m => Alternative (Par m) where
+  empty = Par $ \_ _ -> empty
+  Par m <|> Par n = Par $ \k s -> m k s <|> n k s
 
-instance
-  ( MonadState s m
-  , HasParEnv s m
-  , Alternative m
-  ) => MonadPlus (Par m) where
-  mzero = empty
-  mplus = (<|>)
+instance MonadPlus m => MonadPlus (Par m) where
+  mzero = Par $ \_ _ -> mzero
+  Par m `mplus` Par n = Par $ \k s -> m k s `mplus` n k s

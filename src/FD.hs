@@ -5,6 +5,12 @@
 {-# language DataKinds #-}
 {-# language UnboxedTuples #-}
 {-# language OverloadedLists #-}
+{-# language TemplateHaskell #-}
+{-# language MultiParamTypeClasses #-}
+{-# language FlexibleInstances #-}
+{-# language FunctionalDependencies #-}
+{-# language TypeFamilies #-}
+{-# language StandaloneDeriving #-}
 
 -- |
 -- Copyright :  (c) Edward Kmett 2018
@@ -17,6 +23,7 @@ module FD where
 
 import Cell
 import Control.Applicative
+-- import Control.Lens
 import Control.Monad.Primitive
 import Control.Monad.State.Strict
 import Control.Monad.ST
@@ -24,8 +31,12 @@ import FDVar
 import Key
 import Logic.Class
 import Logic.Reflection
+import Par
+-- import Ref
 
-newtype FD s a = FD { runFD :: StateT (CellEnv (FD s)) (LogicT (ST s)) a } deriving
+type FD' s = StateT (CellEnv (FD s)) (LogicT (ST s))
+
+newtype FD s a = FD { runFD :: Par (FD' s) a } deriving
   ( Functor, Applicative, Alternative
   , Monad, MonadPlus
   , MonadState (CellEnv (FD s))
@@ -34,14 +45,10 @@ newtype FD s a = FD { runFD :: StateT (CellEnv (FD s)) (LogicT (ST s)) a } deriv
   )
 
 instance MonadLogic (FD s) where
-  msplit (FD m) = FD (fmap FD <$> msplit m)
-  interleave (FD m) (FD n) = FD (interleave m n)
-  FD m >>- f = FD (m >>- (runFD . f))
-  ifte (FD m) f (FD e) = FD (ifte m (runFD . f) e)
-  once (FD m) = FD (once m)
+  msplit (FD m) = FD $ fmap FD <$> msplit m
  
 eval :: FD s a -> LogicT (ST s) a
-eval m = evalStateT (runFD m) defaultCellEnv
+eval m = evalStateT (evalStateT (statePar (runFD m)) defaultParEnv) defaultCellEnv
  
 run1 :: (forall s. FD s a) -> a
 run1 m = runST $ observeT $ eval m
