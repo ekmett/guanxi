@@ -99,10 +99,14 @@ instance MonadReader e m => MonadReader e (Par m) where
   ask = lift ask
   local f (Par m) = Par $ \k s -> do
     r <- ask
-    local f $ m (\a -> local (const r) . k a) s -- (local (\_ -> r) . k) s
-   -- l f _ -- $ m _ s -- (l (\_ -> r) . k) s
+    local f $ m (\a -> local (const r) . k a) s
 
-instance (MonadState s m, HasRefEnv s (KeyState m), MonadLogic m, MonadKey m) => MonadLogic (Par m) where
+instance (MonadState s m, HasRefEnv s (KeyState m), MonadLogic m, MonadKey m, Alternative m) => MonadLogic (Par m) where
+  -- statePar :: (Alternative m, MonadKey m, MonadState s m, HasRefEnv s (KeyState m)) => Par m a -> StateT (ParEnv m) m a
+  -- parState :: Monad m => StateT (ParEnv m) m a -> Par m a
+  msplit m = fmap parState <$> parState (msplit (statePar m))
+{-
+  -- this isn't recursively using msplit, so its probably wrong
   msplit m = Par $ \k s -> do
     fired <- newRef False
     s'' <- flip (runPar m) s $ \a s' -> do
@@ -110,6 +114,7 @@ instance (MonadState s m, HasRefEnv s (KeyState m), MonadLogic m, MonadKey m) =>
       k (a :&: m) s'
     b <- use $ ref fired
     if b then pure s'' else k Empty s''
+-}
 
 apply :: (a -> b, a) -> b
 apply (f,x) = f x

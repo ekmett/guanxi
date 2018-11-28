@@ -45,7 +45,7 @@ import Data.Functor.Contravariant.Divisible
 import Data.Function (on)
 import Data.Set as Set -- HashSet?
 import Data.Void
-import Internal.Skew as Skew
+import Internal.Env as Env
 import Key
 import Ref
 
@@ -91,7 +91,7 @@ instance Applicative m => Decidable (Sink m) where
      Right c -> h c
 
 data CellEnv m = CellEnv
-  !(Skew (Cell m))
+  !(Env (Cell m))
   !Int
   !(Propagators m) -- pending propagators
   !(RefEnv (KeyState m))
@@ -101,12 +101,12 @@ data CellEnv m = CellEnv
   -- sort and propagators that exploit logs
  
 defaultCellEnv :: CellEnv m
-defaultCellEnv = CellEnv Skew.empty 0 mempty defaultRefEnv False
+defaultCellEnv = CellEnv Env.empty 0 mempty defaultRefEnv False
 
 class HasRefEnv s (KeyState m) => HasCellEnv s m | s -> m where
   cellEnv :: Lens' s (CellEnv m)
 
-  cells :: Lens' s (Skew (Cell m))
+  cells :: Lens' s (Env (Cell m))
   cells = cellEnv.cells
 
   freshPropagatorId :: Lens' s Int
@@ -153,7 +153,7 @@ newVar_ = Var <$> (cells %%= allocate 1)
 newVar :: (MonadState s m, HasCellEnv s m) => (Var m -> m ()) -> m (Var m)
 newVar strat = do 
   j@(Var -> vj) <- cells %%= allocate 1
-  cells.var j ?= Cell mempty (strat vj)
+  cells.at j ?= Cell mempty (strat vj)
   pure vj
 
 writeSink :: (MonadState s m, HasCellEnv s m) => Sink m a -> a -> m ()
@@ -184,7 +184,7 @@ fire_ = do
 
 fire :: (MonadState s m, HasCellEnv s m, HasCellIds v) => v -> m ()
 fire v = scope $ 
-  for_ (IntSet.toList (cellIds v)) $ \i -> use (cells.var i) >>= \case
+  for_ (IntSet.toList (cellIds v)) $ \i -> use (cells.at i) >>= \case
     Nothing -> pure ()
     Just (Cell ps _) -> pending <>= ps
 
@@ -197,7 +197,7 @@ newPropagator
 newPropagator (cellIds -> cs) (cellIds -> ds) act = do
   p <- Propagator act cs ds <$> (freshPropagatorId <<+= 1)
   for_ (IntSet.toList cs) $ \c ->
-    cells.var c.anon (Cell mempty (pure ())) (const False) . cellPropagators %= Set.insert p
+    cells.at c.anon (Cell mempty (pure ())) (const False) . cellPropagators %= Set.insert p
   pure p
 
 newPropagator_ 

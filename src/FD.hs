@@ -61,7 +61,7 @@ run m = runST $ observeAllT $ eval m
 
 -- |
 -- >>> run example
--- [(1,2),(1,3),(2,3)]
+-- [(1,2),(1,3),(2, 3)]
 example :: FD s (Integer, Integer)
 example = do
   x <- newFDVar [1..3]

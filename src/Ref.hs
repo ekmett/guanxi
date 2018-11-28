@@ -31,7 +31,7 @@ import Data.Maybe (isJust)
 import Data.Type.Coercion
 import Data.Type.Equality
 import Key
-import Internal.Skew as Skew
+import Internal.Env as Env
 
 -- storing 'a' in here leaks the default value while the reference is alive,
 -- but won't cause the explicit reference environment to grow at all
@@ -60,15 +60,15 @@ instance TestEquality (Ref u) where
 instance TestCoercion (Ref u) where
   testCoercion (Ref _ u i) (Ref _ v j) = guard (i == j) *> testCoercion u v
 
-data RefEnv u = RefEnv { _refs :: Skew (Box u) }
+data RefEnv u = RefEnv { _refs :: Env (Box u) }
 
 defaultRefEnv :: RefEnv u
-defaultRefEnv = RefEnv Skew.empty
+defaultRefEnv = RefEnv Env.empty
 
 makeClassy ''RefEnv
 
 ref :: (HasRefEnv s u, Reference t u a) => t -> Lens' s a
-ref (reference -> Ref a k i) f = refs (var i f') where
+ref (reference -> Ref a k i) f = refs (at i f') where
   f' Nothing = Just . Lock k <$> f a
   f' (Just (Lock k' a')) = case testEquality k k' of 
      Just Refl -> Just . Lock k <$> f a'
@@ -89,4 +89,4 @@ modifyRef r f = ref r %= f
 -- delete a reference that we can prove somehow is not referenced anywhere
 -- this will reset it to its 'default' value that was given when the ref was created
 unsafeDeleteRef :: (MonadState s m, HasRefEnv s u, Reference t u a) => t -> m ()
-unsafeDeleteRef (reference -> Ref _ _ i) = refs.var i .= Nothing
+unsafeDeleteRef (reference -> Ref _ _ i) = refs.at i .= Nothing

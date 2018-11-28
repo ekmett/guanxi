@@ -38,10 +38,12 @@ library
     containers,
     contravariant,
     fingertree,
+    hashable,
     lens,
+    mtl                 >= 2.2.2 && < 2.3,
     primitive,
     transformers        >= 0.5.5 && < 0.6,
-    mtl                 >= 2.2.2 && < 2.3
+    unordered-containers
 
   exposed-modules:
     Aligned
@@ -52,7 +54,7 @@ library
     Freer
     Future
     Internal.Aligned
-    Internal.Skew
+    Internal.Env
     Internal.Unaligned
     Key
     Log
