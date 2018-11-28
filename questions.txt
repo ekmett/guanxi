@@ -1,7 +1,7 @@
 * Is there an update monad story?
   * Can I use it to recycle the right hand sides of (<*>)'s in modified contexts
   * A computation would return the set of environment variables read and written
- 
+
 * How to do garbage collection on environments?
   * Seems to need a deep embedding
   * Is this even relevant with a logict style search
@@ -26,10 +26,10 @@
   * Vault? wants a nice unique variable supply?
       concurrent-supply
 
-* Pointwise products of abstract domains? 
+* Pointwise products of abstract domains?
 
 * QIP? What is the Abstract-CDCL analogue for SDCL?
-  Wouldn't QIP and QMIP be necessary to handle things like deriving "cheap" 
+  Wouldn't QIP and QMIP be necessary to handle things like deriving "cheap"
   equivalent definitions via funext.
 
 * Can you use WQOs rather than integer costs or mappings of domains to reals for
@@ -49,3 +49,11 @@
 * gappa w/ octagons?
 
 * http://web.engr.oregonstate.edu/~erwig/HaskellRules/
+
+* From <https://people.eecs.berkeley.edu/~necula/Papers/NelsonOppenCong.pdf>,
+
+  * We conclude Section 4 with a curiosity: If the axiomatization of the theory of list
+    structure is altered by specifying the result of CAR and CDR on atoms, the problem of
+    determining the satisfiability of a conjunction becomes NP-complete.
+
+  But with types we don't need to do this!
