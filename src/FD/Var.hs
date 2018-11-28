@@ -13,7 +13,7 @@
 -- Stability :  experimental
 -- Portability: non-portable
 
-module FDVar where
+module FD.Var where
 
 import Cell
 import Control.Applicative as A

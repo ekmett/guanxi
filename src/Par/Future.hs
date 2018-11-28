@@ -5,7 +5,7 @@
 -- Stability :  experimental
 -- Portability: non-portable
 
-module Future 
+module Par.Future 
   ( Future
   , newFuture
   , await
@@ -16,7 +16,7 @@ import Control.Applicative
 import Control.Monad.State
 import Key
 import Par.Class
-import Promise
+import Par.Promise
 
 newtype Future m a = Future (Promise m a)
 
@@ -28,4 +28,4 @@ newFuture m = do
     p !!= a
 
 await :: (MonadPar m, MonadState s m, HasCellEnv s m, Alternative m) => Future m a -> m a
-await (Future p) = Promise.demand p
+await (Future p) = demand p

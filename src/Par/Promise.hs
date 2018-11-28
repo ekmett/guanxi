@@ -1,7 +1,7 @@
 {-# language LambdaCase #-}
 {-# language FlexibleContexts #-}
 
-module Promise 
+module Par.Promise 
   ( Promise
   , newPromise
   , newPromise_

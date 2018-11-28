@@ -26,7 +26,7 @@ import Control.Applicative
 import Control.Monad.Primitive
 import Control.Monad.State.Strict
 import Control.Monad.ST
-import FDVar
+import FD.Var
 import Key
 import Logic.Class
 import Logic.Reflection

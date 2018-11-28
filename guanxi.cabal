@@ -50,10 +50,9 @@ library
     Cell
     Disjoint
     FD
-    FDVar
+    FD.Var
     Free
     Freer
-    Future
     Internal.Aligned
     Internal.Env
     Internal.Unaligned
@@ -65,7 +64,8 @@ library
     Logic.Reflection
     Par
     Par.Class
-    Promise
+    Par.Future
+    Par.Promise
     Ref
     Tactic
     Unaligned
