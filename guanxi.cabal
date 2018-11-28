@@ -48,6 +48,7 @@ library
   exposed-modules:
     Aligned
     Cell
+    Disjoint
     FD
     FDVar
     Free

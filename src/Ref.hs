@@ -19,7 +19,7 @@
 module Ref
   ( Ref, RefEnv(..), HasRefEnv(..), defaultRefEnv
   , Reference(..)
-  , ref, newRef, readRef, writeRef, modifyRef, unsafeDeleteRef
+  , ref, newRef, newSelfRef, readRef, writeRef, modifyRef, unsafeDeleteRef
   , refId
   ) where
 
@@ -52,7 +52,7 @@ refId (reference -> Ref _ _ i) = i
 --  hash (Ref _ _ j) = j
 
 instance Eq (Ref u a) where
-  Ref _ u i == Ref _ v j = i == j && isJust (testEquality u v) 
+  Ref _ u i == Ref _ v j = i == j && isJust (testEquality u v)
 
 instance TestEquality (Ref u) where
   testEquality (Ref _ u i) (Ref _ v j) = guard (i == j) *> testEquality u v
@@ -70,12 +70,22 @@ makeClassy ''RefEnv
 ref :: (HasRefEnv s u, Reference t u a) => t -> Lens' s a
 ref (reference -> Ref a k i) f = refs (at i f') where
   f' Nothing = Just . Lock k <$> f a
-  f' (Just (Lock k' a')) = case testEquality k k' of 
+  f' (Just (Lock k' a')) = case testEquality k k' of
      Just Refl -> Just . Lock k <$> f a'
      Nothing -> error "panic: bad ref"
 
 newRef :: (MonadState s m, MonadKey m, HasRefEnv s (KeyState m)) => a -> m (Ref (KeyState m) a)
 newRef a = Ref a <$> newKey <*> (refs %%= allocate 1)
+
+-- create a reference where the default value needs to know itself
+-- this is cheaper than creating with a default and then updating
+-- because it doesn't have to involve a write to the global environment
+newSelfRef :: (MonadState s m, MonadKey m, HasRefEnv s (KeyState m)) =>
+  (Ref (KeyState m) a -> a) -> m (Ref (KeyState m) a)
+newSelfRef f = do
+  i <- refs %%= allocate 1
+  k <- newKey
+  let r = Ref (f r) k i in pure r
 
 readRef :: (MonadState s m, HasRefEnv s u, Reference t u a) => t -> m a
 readRef = use . ref
