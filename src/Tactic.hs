@@ -1,7 +1,16 @@
 {-# language RankNTypes #-}
 {-# language DeriveTraversable #-}
 
--- toy tactics
+-- |
+-- Copyright :  (c) Edward Kmett 2018
+-- License   :  BSD-2-Clause OR Apache-2.0
+-- Maintainer:  Edward Kmett <ekmett@gmail.com>
+-- Stability :  experimental
+-- Portability: non-portable
+--
+-- A toy tactic language
+--
+-- e.g. @Tactic ([Formula],Formula) FD@
 
 module Tactic where
 
@@ -24,6 +33,7 @@ instance Bitraversable T where
 -- uncps
 lower :: Applicative m => Tactic g m a -> g -> m (T g a)
 lower m = runTactic m (pure . Proof) (pure Failed) (pure . Goal)
+
 
 -- | Based on 
 -- <https://people.eecs.berkeley.edu/~necula/autded/lecture15-tactics.pdf>
@@ -49,5 +59,5 @@ instance Alternative (Tactic g m) where
     runTactic m kp (runTactic n kp kf kc g) kc g
   empty = Tactic $ \_ kf _ _ -> kf
 
-repeatedly :: Tactic x m a -> Tactic x m a
+repeatedly :: Tactic g m a -> Tactic g m a
 repeatedly t = t `fby` repeatedly t

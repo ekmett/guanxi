@@ -23,7 +23,6 @@ module FD where
 
 import Cell
 import Control.Applicative
--- import Control.Lens
 import Control.Monad.Primitive
 import Control.Monad.State.Strict
 import Control.Monad.ST
@@ -32,7 +31,6 @@ import Key
 import Logic.Class
 import Logic.Reflection
 import Par
--- import Ref
 
 type FD' s = StateT (CellEnv (FD s)) (LogicT (ST s))
 
