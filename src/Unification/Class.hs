@@ -18,7 +18,7 @@ module Unification.Class
   , GUnified
   ) where
 
-import Aligned.Freer
+-- import Aligned.Freer
 import Control.Applicative
 import GHC.Generics
 import Data.Functor.Sum
@@ -44,14 +44,6 @@ instance Unified Proxy
 instance Eq e => Unified (Const e)
 instance Eq e => Unified ((,) e)
 instance Unified Identity
-
--- using RwoR to force layer by layer
-instance Unified f => Unified (Free f) where
-  merge f l r = go (view l) (view r) where
-    --go :: forall (f :: Type -> Type).  Unified f => FreeView f a -> FreeView f b -> t (Free f c)
-    go (Pure a) (Pure b)   = pure <$> f a b
-    go (Free as ka) (Free bs kb) = free <$> merge (\a b -> merge f (ka a) (kb b)) as bs
-    go _ _ = empty
 
 class GUnified f where
   gmerge :: Alternative t => (a -> b -> t c) -> f a -> f b -> t (f c)
