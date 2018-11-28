@@ -66,6 +66,7 @@ library
     Par.Class
     Promise
     Ref
+    Tactic
     Unaligned
     Unified
     Unification
