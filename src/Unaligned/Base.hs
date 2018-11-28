@@ -1,6 +1,6 @@
 {-# language PatternSynonyms #-}
 
-module Unaligned
+module Unaligned.Base
   ( View(..)
   , Cons(..)
   , Uncons(..)
@@ -16,4 +16,4 @@ module Unaligned
   , pattern Snoc
   ) where
 
-import Internal.Unaligned
+import Unaligned.Internal

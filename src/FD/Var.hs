@@ -15,7 +15,6 @@
 
 module FD.Var where
 
-import Cell
 import Control.Applicative as A
 import Control.Lens 
 import Control.Monad (join, when, guard)
@@ -23,9 +22,10 @@ import Control.Monad.State.Class
 import Data.Set as Set
 import Data.Type.Coercion
 import Data.Type.Equality
-import Key
 import Logic.Class
-import Ref
+import Ref.Base
+import Ref.Cell
+import Ref.Key
 
 -- intersection sets with a final concretization pass
 data FDVar m a = FDVar (Ref (KeyState m) (Set a)) (Var m)

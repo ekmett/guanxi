@@ -10,15 +10,15 @@
 -- Stability :  experimental
 -- Portability: non-portable
 
-module Freer where
+module Aligned.Freer where
 
+import Aligned.Base
 import Control.Arrow (Kleisli(..))
 import Control.Monad (ap, liftM)
 import Control.Category
 import Data.Functor 
 import Prelude hiding ((.),id)
 
-import Aligned
 
 data Free f a where
   F :: FreeView f x -> Rev Cat (Kleisli (Free f)) x b -> Free f b

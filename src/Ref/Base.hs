@@ -16,7 +16,7 @@
 -- Portability: non-portable
 --
 -- LogicT-compatible references
-module Ref
+module Ref.Base
   ( Ref, RefEnv(..), HasRefEnv(..), defaultRefEnv
   , Reference(..)
   , ref, newRef, newSelfRef, readRef, writeRef, modifyRef, unsafeDeleteRef
@@ -26,12 +26,11 @@ module Ref
 import Control.Monad (guard)
 import Control.Monad.State.Class
 import Control.Lens
--- import Data.Hashable
 import Data.Maybe (isJust)
 import Data.Type.Coercion
 import Data.Type.Equality
-import Key
-import Internal.Env as Env
+import Ref.Env as Env
+import Ref.Key
 
 -- storing 'a' in here leaks the default value while the reference is alive,
 -- but won't cause the explicit reference environment to grow at all

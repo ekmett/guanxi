@@ -14,7 +14,7 @@
 -- Type-aligned sequences in the style of Atze van der Ploeg's 
 -- <http://okmij.org/ftp/Haskell/zseq.pdf Reflection without Remorse>
 
-module Internal.Aligned
+module Aligned.Internal
   ( View(..)
   , Cons(..)
   , Uncons(..)

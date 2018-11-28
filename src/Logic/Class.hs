@@ -22,7 +22,7 @@ import Control.Monad.State.Lazy as Lazy
 import Control.Monad.Reader
 import Control.Monad.Writer.Strict as Strict
 import Control.Monad.Writer.Lazy as Lazy
-import Unaligned
+import Unaligned.Base
 
 class MonadPlus m => MonadLogic m where
   -- |

@@ -10,7 +10,6 @@ module Par.Promise
   , (!!=)
   ) where
 
-import Cell
 import Control.Applicative
 import Control.Lens
 import Control.Monad (guard, join)
@@ -19,8 +18,9 @@ import Control.Monad.State.Class
 import Data.Foldable (traverse_)
 import Data.Maybe
 import Par.Class
-import Key
-import Ref
+import Ref.Cell
+import Ref.Key
+import Ref.Base
 
 data Promise m a = Promise
   { _promiseVal :: Ref (KeyState m) (Maybe a)

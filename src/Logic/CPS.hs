@@ -24,8 +24,8 @@ import Control.Monad.State.Class
 import Data.Foldable (fold)
 import Data.Functor.Identity
 import Logic.Class
-import Unaligned
-import Key
+import Unaligned.Base
+import Ref.Key
 
 newtype LogicT m a = LogicT
   { runLogicT :: forall r. (a -> m r -> m r) -> m r -> m r

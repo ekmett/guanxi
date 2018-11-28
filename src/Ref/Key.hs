@@ -17,7 +17,14 @@
 -- <https://people.seas.harvard.edu/~pbuiras/publications/KeyMonadHaskell2016.pdf The Key Monad: Type-Safe Unconstrained Dynamic Typing>
 -- by Atze van der Ploeg, Koen Claessen, and Pablo Buiras
 
-module Key where
+module Ref.Key 
+  ( Key(..)
+  , Box(..)
+  , unlock
+  , MonadKey(..)
+  , primKey
+  , runKey
+  ) where
 
 import Control.Monad.Primitive
 import Control.Monad.Trans.Class

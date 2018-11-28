@@ -17,7 +17,7 @@
 -- Stability :  experimental
 -- Portability: non-portable
 
-module Internal.Env
+module Ref.Env
   ( Env
   , lookup
   , allocate

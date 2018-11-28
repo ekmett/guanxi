@@ -10,7 +10,7 @@
 -- Type-aligned sequences in the style of Atze van der Ploeg's 
 -- <http://okmij.org/ftp/Haskell/zseq.pdf Reflection without Remorse>
 
-module Aligned
+module Aligned.Base
   ( View(..)
   , Cons(..)
   , Uncons(..)
@@ -27,4 +27,4 @@ module Aligned
   , pattern Nil
   ) where
 
-import Internal.Aligned
+import Aligned.Internal

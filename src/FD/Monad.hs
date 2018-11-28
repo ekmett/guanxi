@@ -19,18 +19,18 @@
 -- Stability :  experimental
 -- Portability: non-portable
 
-module FD where
+module FD.Monad where
 
-import Cell
 import Control.Applicative
 import Control.Monad.Primitive
 import Control.Monad.State.Strict
 import Control.Monad.ST
 import FD.Var
-import Key
 import Logic.Class
 import Logic.Reflection
-import Par
+import Par.Monad
+import Ref.Cell
+import Ref.Key
 
 type FD' s = StateT (CellEnv (FD s)) (LogicT (ST s))
 

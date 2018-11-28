@@ -16,7 +16,7 @@
 -- Stability :  experimental
 -- Portability: non-portable
 
-module Log 
+module Ref.Log 
   ( 
   -- * Logs
     Log(..)
@@ -30,9 +30,9 @@ import Control.Monad.State.Class
 import Control.Lens
 import Data.FingerTree as F
 import Data.Foldable as Foldable
-import Key
-import Ref
 import Prelude hiding (log)
+import Ref.Base
+import Ref.Key
 
 -- version # since, ref count, monoidal summary
 data LogEntry a = LogEntry

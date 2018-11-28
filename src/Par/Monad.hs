@@ -18,7 +18,7 @@
 -- Stability :  experimental
 -- Portability: non-portable
 
-module Par
+module Par.Monad
   ( ParEnv(..), HasParEnv(..)
   , Par(Par), runPar
   , statePar
@@ -34,12 +34,12 @@ import Control.Monad.Reader.Class
 import Control.Monad.State.Strict hiding (fail) -- fix this API!
 import Control.Applicative
 import Control.Lens hiding (Empty, snoc, uncons)
-import Key
 import Logic.Class
 import Par.Class
 import Prelude hiding (fail)
-import Ref
-import Unaligned
+import Ref.Base
+import Ref.Key
+import Unaligned.Base
 
 type Task m = ParEnv m -> m (ParEnv m)
 

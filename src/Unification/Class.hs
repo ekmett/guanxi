@@ -13,11 +13,12 @@
 -- Stability :  experimental
 -- Portability: non-portable
 
-module Unified 
+module Unification.Class
   ( Unified(..)
   , GUnified
   ) where
 
+import Aligned.Freer
 import Control.Applicative
 import GHC.Generics
 import Data.Functor.Sum
@@ -25,7 +26,6 @@ import Data.Functor.Identity
 import Data.Functor.Product
 import Data.Functor.Compose
 import Data.Proxy
-import Freer
 
 class Traversable f => Unified f where
   merge :: Alternative t => (a -> b -> t c) -> f a -> f b -> t (f c)

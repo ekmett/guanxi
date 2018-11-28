@@ -17,9 +17,9 @@ import Control.Monad.Trans
 import Data.Bifunctor
 import Data.Bifoldable
 import Data.Bitraversable
-import Key
 import Logic.Class
-import Unaligned
+import Ref.Key
+import Unaligned.Base
 
 type L m a = View a (LogicT m a)
 

@@ -11,12 +11,12 @@ module Par.Future
   , await
   ) where
 
-import Cell
 import Control.Applicative
 import Control.Monad.State
-import Key
 import Par.Class
 import Par.Promise
+import Ref.Cell
+import Ref.Key
 
 newtype Future m a = Future (Promise m a)
 

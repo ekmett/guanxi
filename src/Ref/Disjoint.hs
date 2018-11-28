@@ -11,7 +11,7 @@
 -- Portability: non-portable
 --
 -- disjoint set forests
-module Disjoint 
+module Ref.Disjoint 
   ( Disjoint
   , newDisjoint
   , union
@@ -23,8 +23,8 @@ module Disjoint
 import Control.Lens
 import Control.Monad (unless)
 import Control.Monad.State.Class
-import Key
-import Ref
+import Ref.Base
+import Ref.Key
 
 data D u = D
   { _dsize :: {-# unpack #-} !Int

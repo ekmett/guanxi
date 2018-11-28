@@ -18,8 +18,8 @@ module Unification where
 import Control.Monad
 import Data.IORef
 import Data.Kind
-import Freer
-import Unified
+import Aligned.Freer
+import Unification.Class
 
 class EqVar (v :: (Type -> Type) -> Type) where
   eqVar :: v f -> v f -> Bool

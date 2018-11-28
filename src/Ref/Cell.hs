@@ -25,7 +25,7 @@
 -- Stability :  experimental
 -- Portability: non-portable
 
-module Cell
+module Ref.Cell
   ( Propagator(..), newPropagator, newPropagator_
   , aim, fire_
   , Var(..), newVar, newVar_, fire
@@ -45,9 +45,9 @@ import Data.Functor.Contravariant.Divisible
 import Data.Function (on)
 import Data.Set as Set -- HashSet?
 import Data.Void
-import Internal.Env as Env
-import Key
-import Ref
+import Ref.Env as Env
+import Ref.Base
+import Ref.Key
 
 type Cells = IntSet -- TODO: newtype this, users see it
 type Propagators m = Set (Propagator m)  -- TODO: newtype this, users see it

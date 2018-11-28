@@ -46,31 +46,31 @@ library
     unordered-containers
 
   exposed-modules:
-    Aligned
-    Cell
-    Disjoint
-    FD
+    Aligned.Internal
+    Aligned.Base
+    Aligned.Free
+    Aligned.Freer
+    FD.Monad
     FD.Var
-    Free
-    Freer
-    Internal.Aligned
-    Internal.Env
-    Internal.Unaligned
-    Key
-    Log
     Logic.Class
     Logic.CPS
     Logic.Naive
     Logic.Reflection
-    Par
+    Par.Monad
     Par.Class
     Par.Future
     Par.Promise
-    Ref
+    Ref.Base
+    Ref.Cell
+    Ref.Disjoint
+    Ref.Env
+    Ref.Key
+    Ref.Log
     Tactic
-    Unaligned
-    Unified
+    Unaligned.Base
+    Unaligned.Internal
     Unification
+    Unification.Class
 
 test-suite doctests
   default-language: Haskell2010

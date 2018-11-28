@@ -24,9 +24,9 @@ import Data.Bifunctor
 import Data.Bifoldable
 import Data.Bitraversable
 import Data.Functor.Identity
-import Key
+import Ref.Key
 import Logic.Class
-import Unaligned
+import Unaligned.Base
 
 type L m a = View a (LogicT m a)
 
