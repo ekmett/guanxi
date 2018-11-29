@@ -27,7 +27,9 @@ import Ref.Base
 import Ref.Cell
 import Ref.Key
 
--- intersection sets with a final concretization pass
+-- finite domains represented as intersection sets with
+-- propagators to establish generalized arc consistency, 
+-- followed by a final concretization pass
 data FDVar m a = FDVar (Ref (KeyState m) (Set a)) (Var m)
 
 instance Eq (FDVar m a) where

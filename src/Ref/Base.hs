@@ -26,7 +26,6 @@ module Ref.Base
 import Control.Monad (guard)
 import Control.Monad.State.Class
 import Control.Lens
-import Data.Maybe (isJust)
 import Data.Type.Coercion
 import Data.Type.Equality
 import Ref.Env as Env
@@ -51,7 +50,10 @@ refId (reference -> Ref _ _ i) = i
 --  hash (Ref _ _ j) = j
 
 instance Eq (Ref u a) where
-  Ref _ u i == Ref _ v j = i == j && isJust (testEquality u v)
+  Ref _ _ i == Ref _ _ j = i == j
+
+instance Ord (Ref u a) where
+  Ref _ _ i `compare` Ref _ _ j = compare i j
 
 instance TestEquality (Ref u) where
   testEquality (Ref _ u i) (Ref _ v j) = guard (i == j) *> testEquality u v

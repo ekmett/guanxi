@@ -62,10 +62,10 @@ library
     Par.Promise
     Ref.Base
     Ref.Cell
-    Ref.Disjoint
     Ref.Env
     Ref.Key
     Ref.Log
+    Ref.Rem
     Tactic
     Unaligned.Base
     Unaligned.Internal
