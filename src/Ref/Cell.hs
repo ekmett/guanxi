@@ -32,7 +32,7 @@ module Ref.Cell
   , ground
   , Sink(..), writeSink
   , HasCellIds(..)
-  , HasCellEnv(..), CellEnv, defaultCellEnv
+  , HasCellEnv(..), Cell(..), CellEnv, defaultCellEnv
   -- utility
   , Cells, Propagators
   ) where
@@ -68,6 +68,9 @@ data Cell m = Cell
   { _cellPropagators :: Propagators m -- outbound propagators
   , _cellStrategy    :: m () -- this forces us to be present and grounded
   }
+
+instance Applicative m => Semigroup (Cell m) where
+  Cell p s <> Cell q t = Cell (p <> q) (s *> t)
 
 makeLenses ''Cell
 
