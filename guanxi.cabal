@@ -53,10 +53,10 @@ library
     FD.Monad
     FD.Var
     Logic.Class
-    Logic.CPS
+    Logic.Cont
     Logic.Naive
     Logic.Reflection
-    Par.Monad
+    Par.Cont
     Par.Class
     Par.Future
     Par.Promise

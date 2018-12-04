@@ -18,7 +18,7 @@
 -- Stability :  experimental
 -- Portability: non-portable
 
-module Par.Monad
+module Par.Cont
   ( ParEnv(..), HasParEnv(..)
   , Par(Par), runPar
   , statePar

@@ -13,7 +13,7 @@
 -- Stability :  experimental
 -- Portability: non-portable
 
-module Logic.CPS where
+module Logic.Cont where
 
 import Control.Applicative
 import Control.Monad

@@ -27,14 +27,14 @@ import Control.Monad.State.Strict
 import Control.Monad.ST
 import FD.Var
 import Logic.Class
-import Logic.Reflection
-import Par.Monad
+import Logic.Reflection as Reflection
+import Par.Cont as Cont
 import Ref.Key
 import Ref.Signal
 
-type FD' s = StateT (SignalEnv (FD s)) (LogicT (ST s))
+type FD' s = StateT (SignalEnv (FD s)) (Reflection.LogicT (ST s))
 
-newtype FD s a = FD { runFD :: Par (FD' s) a } deriving
+newtype FD s a = FD { runFD :: Cont.Par (FD' s) a } deriving
   ( Functor, Applicative, Alternative
   , Monad, MonadPlus
   , MonadState (SignalEnv (FD s))
