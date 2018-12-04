@@ -37,8 +37,8 @@ pattern V a <- (view -> a) where
 
 view :: Functor f => Free f a -> FreeView f a
 view (F h t) = case h of
-  Pure a -> case unsnoc t of
-    Empty     -> Pure a
+  pa@(Pure a) -> case unsnoc t of
+    Empty     -> pa
     tc :&: hc -> view $ runKleisli hc a ^>>= tc
   Free f -> Free $ fmap (^>>= t) f
 

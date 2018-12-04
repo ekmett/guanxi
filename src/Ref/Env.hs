@@ -21,11 +21,11 @@ module Ref.Env
   ( Env
   , lookup
   , allocate
-  , empty
   , size
   ) where
 
 import Control.Lens
+import Data.Default
 import Data.Functor
 import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HashMap
@@ -49,8 +49,8 @@ instance Ixed (Env a)
 instance At (Env a) where
   at i = envMap.at i
 
-empty :: Env a
-empty = Env mempty 0
+instance Default (Env a) where
+  def = Env mempty 0
 
 allocate :: Int -> Env a -> (Int, Env a)
 allocate i (Env m j) = (j, Env m (j+i))

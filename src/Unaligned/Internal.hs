@@ -23,6 +23,7 @@ import Control.Applicative.Backwards
 import Data.Bifunctor
 import Data.Bifoldable
 import Data.Bitraversable
+import Data.Default
 import Data.Foldable as Foldable
 import Data.Semigroup (Dual(..))
 import GHC.Exts
@@ -33,6 +34,9 @@ import GHC.Exts
 
 data View a b = Empty | a :&: b
   deriving (Show, Functor, Foldable, Traversable)
+
+instance Default (View a b) where
+  def = Empty
 
 instance Bifunctor View where
   bimap _ _ Empty = Empty
@@ -83,6 +87,9 @@ pattern Snoc as a <- (unsnoc -> as :&: a) where
 
 newtype Rev f a = Rev { runRev :: f a }
   deriving (Show, Functor)
+
+instance Default (f a) => Default (Rev f a) where
+  def = Rev def
 
 instance Foldable f => Foldable (Rev f) where
   foldMap f = getDual . foldMap (Dual . f) . runRev
@@ -145,6 +152,9 @@ data Q a = Q [a] (Rev [] a) [a]
 
 {-# complete Nil, Cons :: Q #-}
 
+instance Default (Q a) where
+  def = nil
+
 instance Show a => Show (Q a) where
   showsPrec d = showsPrec d . Foldable.toList
 
@@ -200,6 +210,9 @@ data Cat a = E | C a !(Q (Cat a))
 {-# complete Nil, C #-}
 {-# complete E, Cons #-}
 {-# complete Nil, Cons :: Cat #-}
+
+instance Default (Cat a) where
+  def = E
 
 instance Semigroup (Cat a) where
   E <> xs = xs

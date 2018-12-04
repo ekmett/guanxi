@@ -16,12 +16,14 @@ module Aligned.Base
   , Uncons(..)
   , Snoc(..)
   , Unsnoc(..)
+  , Singleton(..)
   , Nil(..)
   , Op(..)
   , Thrist
   , Q
   , Cat
   , Rev(..)
+  , foldCat
   , pattern Cons
   , pattern Snoc
   , pattern Nil

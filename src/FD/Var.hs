@@ -21,7 +21,6 @@ import Control.Monad (join, when, guard)
 import Control.Monad.State.Class
 import Data.Set as Set
 import Data.Type.Coercion
-import Data.Type.Equality
 import Logic.Class
 import Ref.Base
 import Ref.Key
@@ -34,11 +33,6 @@ data FDVar m a = FDVar (Ref (KeyState m) (Set a)) (Signal m)
 
 instance Eq (FDVar m a) where
   FDVar _ s == FDVar _ t = s == t
-
-instance TestEquality (FDVar m) where
-  testEquality (FDVar r i) (FDVar s j) = case testEquality r s of
-     Just Refl | i == j -> Just Refl
-     _ -> Nothing
 
 instance TestCoercion (FDVar m) where
   testCoercion (FDVar r i) (FDVar s j) = case testCoercion r s of

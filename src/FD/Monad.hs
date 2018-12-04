@@ -25,6 +25,7 @@ import Control.Applicative
 import Control.Monad.Primitive
 import Control.Monad.State.Strict
 import Control.Monad.ST
+import Data.Default
 import FD.Var
 import Logic.Class
 import Logic.Reflection as Reflection
@@ -46,7 +47,7 @@ instance MonadLogic (FD s) where
   msplit (FD m) = FD $ fmap FD <$> msplit m
 
 eval :: FD s a -> LogicT (ST s) a
-eval m = evalStateT (evalStateT (statePar (runFD m)) defaultParEnv) defaultSignalEnv
+eval m = evalStateT (evalStateT (statePar (runFD m)) def) def
 
 run1 :: (forall s. FD s a) -> a
 run1 m = runST $ observeT $ eval m

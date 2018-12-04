@@ -17,6 +17,8 @@
 {-# language TypeFamilies #-}
 {-# language TypeOperators #-}
 {-# language GeneralizedNewtypeDeriving #-}
+{-# language RoleAnnotations #-}
+
 
 -- |
 -- Copyright :  (c) Edward Kmett 2018
@@ -34,17 +36,15 @@ module Ref.Signal
   , HasSignals(..)
   , ground
   , propagate
-  -- implementation
-  , HasSignalEnv(..)
+  -- * implementation
+  , HasSignalEnv(signalEnv)
   , SignalEnv
-  , defaultSignalEnv
-  , Cell
-  -- utility
   ) where
 
 import Control.Monad.State
 import Control.Lens
 import Data.IntSet as IntSet
+import Data.Default
 import Data.Foldable as Foldable
 import Data.Function (on)
 import Data.Kind
@@ -57,11 +57,13 @@ import Ref.Key
 newtype Signals (m :: Type -> Type) = Signals { getSignals :: IntSet }
   deriving (Semigroup, Monoid)
 
-type Propagators m = Set (Propagator m)  -- TODO: newtype this, users see it
+type role Signals nominal
+
+type Propagators m = Set (Propagator m)
 
 data Propagator m = Propagator
-  { _propagatorAction :: m ()
-  , _propSources, _propTargets :: !(Signals m)-- TODO: added for future topological analysis 
+  { _propagatorAction :: m () -- TODO: return if we should self-delete, e.g. if all inputs are covered by contradiction
+  , _propSources, _propTargets :: !(Signals m) -- TODO: added for future topological analysis
   , propagatorId :: {-# unpack #-} !Int
   }
 
@@ -76,6 +78,8 @@ data Cell m = Cell
   , _cellStrategy    :: m () -- this forces us to be present and grounded
   }
 
+type role Cell nominal
+
 instance Applicative m => Semigroup (Cell m) where
   Cell p s <> Cell q t = Cell (p <> q) (s *> t)
 
@@ -87,33 +91,30 @@ data SignalEnv m = SignalEnv
   !(Propagators m) -- pending propagators
   !(RefEnv (KeyState m))
   !Bool
-  -- TODO: track a deferral flag to delay firing, when we run actions with a fire_ to come after
-  -- we'll set the flag, letting us batch more activity. this can be more useful once we have a topological
-  -- sort and propagators that exploit logs
- 
-defaultSignalEnv :: SignalEnv m
-defaultSignalEnv = SignalEnv Env.empty 0 mempty defaultRefEnv False
+
+instance Default (SignalEnv m) where
+  def = SignalEnv def 0 mempty def False
 
 class HasRefEnv s (KeyState m) => HasSignalEnv s m | s -> m where
-  cellEnv :: Lens' s (SignalEnv m)
+  signalEnv :: Lens' s (SignalEnv m)
 
   cells :: Lens' s (Env (Cell m))
-  cells = cellEnv.cells
+  cells = signalEnv.cells
 
   freshPropagatorId :: Lens' s Int
-  freshPropagatorId = cellEnv.freshPropagatorId
-  
+  freshPropagatorId = signalEnv.freshPropagatorId
+
   pending :: Lens' s (Propagators m)
-  pending = cellEnv.pending
+  pending = signalEnv.pending
 
   safety :: Lens' s Bool
-  safety = cellEnv.safety
+  safety = signalEnv.safety
 
 instance (u ~ KeyState m) => HasRefEnv (SignalEnv m) u where
   refEnv f (SignalEnv c p pp r s) = f r <&> \r' -> SignalEnv c p pp r' s
 
 instance HasSignalEnv (SignalEnv m) m where
-  cellEnv = id
+  signalEnv = id
   cells f (SignalEnv c p pp r s) = f c <&> \c' -> SignalEnv c' p pp r s
   freshPropagatorId f (SignalEnv c p pp r s) = f p <&> \p' -> SignalEnv c p' pp r s
   -- TODO: writing to the pending list with the safety off is dangerous, fix this?
@@ -139,7 +140,7 @@ newSignal_ :: (MonadState s m, HasSignalEnv s m) => m (Signal m)
 newSignal_ = Signal <$> (cells %%= allocate 1)
 
 newSignal :: (MonadState s m, HasSignalEnv s m) => (Signal m -> m ()) -> m (Signal m)
-newSignal strat = do 
+newSignal strat = do
   j@(Signal -> vj) <- cells %%= allocate 1
   cells.at j ?= Cell mempty (strat vj)
   pure vj
@@ -162,33 +163,24 @@ fire__ = join $ pending %%= \ ps -> case Set.maxView ps of
 fire_ :: (MonadState s m, HasSignalEnv s m) => m ()
 fire_ = do
   s <- use safety
-  unless s fire__ 
+  unless s fire__
 
 fire :: (MonadState s m, HasSignalEnv s m, HasSignals m v) => v -> m ()
-fire v = scope $ 
+fire v = scope $
   for_ (IntSet.toList $ getSignals $ signals v) $ \i -> use (cells.at i) >>= \case
     Nothing -> pure ()
     Just (Cell ps _) -> pending <>= ps
 
-newPropagator
-  :: (MonadState s m, HasSignalEnv s m, HasSignals m x, HasSignals m y)
-  => x -- ^ sources
-  -> y -- ^ targets
-  -> m () -- ^ propagator action
-  -> m (Propagator m)
-newPropagator (signals -> cs) (signals -> ds) act = do
-  p <- Propagator act cs ds <$> (freshPropagatorId <<+= 1)
-  for_ (IntSet.toList $ getSignals cs) $ \c ->
-    cells.at c.anon (Cell mempty (pure ())) (const False) . cellPropagators %= Set.insert p
-  pure p
-
-propagate 
+propagate
   :: (MonadState s m, HasSignalEnv s m, HasSignals m x, HasSignals m y)
   => x -- ^ sources
   -> y -- ^ targets
   -> m () -- ^ propagator action
   -> m ()
-propagate x y m = void (newPropagator x y m)
+propagate (signals -> cs) (signals -> ds) act = do
+  p <- Propagator act cs ds <$> (freshPropagatorId <<+= 1)
+  for_ (IntSet.toList $ getSignals cs) $ \c ->
+    cells.at c.anon (Cell mempty (pure ())) (const False) . cellPropagators %= Set.insert p
 
 ground :: (MonadState s m, HasSignalEnv s m) => m ()
 ground = use cells >>= sequenceOf_ (traverse.cellStrategy)

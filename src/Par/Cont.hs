@@ -23,7 +23,6 @@ module Par.Cont
   , Par(Par), runPar
   , statePar
   , parState
-  , defaultParEnv
   ) where
 
 import Control.Monad hiding (fail)
@@ -34,6 +33,7 @@ import Control.Monad.Reader.Class
 import Control.Monad.State.Strict hiding (fail) -- fix this API!
 import Control.Applicative
 import Control.Lens hiding (Empty, snoc, uncons)
+import Data.Default
 import Logic.Class
 import Par.Class
 import Prelude hiding (fail)
@@ -45,8 +45,8 @@ type Task m = ParEnv m -> m (ParEnv m)
 
 newtype ParEnv m = ParEnv { _todo :: Q (Task m) }
 
-defaultParEnv :: ParEnv m
-defaultParEnv = ParEnv Nil
+instance Default (ParEnv m) where
+  def = ParEnv def
 
 makeClassy ''ParEnv
 

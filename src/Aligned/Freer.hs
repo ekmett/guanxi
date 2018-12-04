@@ -47,8 +47,8 @@ instance Traversable f => Traversable (FreeView f) where
 
 view :: Free f a -> FreeView f a
 view (F h t) = case h of
-  Pure a -> case unsnoc t of
-    Empty     -> Pure a
+  pa@(Pure a) -> case unsnoc t of
+    Empty     -> pa
     tc :&: hc -> view $ runKleisli hc a ^>>= tc
   Free fx k -> Free fx ((^>>= t) . k)
 

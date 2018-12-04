@@ -1,6 +1,7 @@
 {-# language GADTs #-}
 {-# language PolyKinds #-}
 {-# language RankNTypes #-}
+{-# language ScopedTypeVariables #-}
 {-# language PatternSynonyms #-}
 {-# language ViewPatterns #-}
 
@@ -20,12 +21,14 @@ module Aligned.Internal
   , Uncons(..)
   , Snoc(..)
   , Unsnoc(..)
+  , Singleton(..)
   , Nil(..)
   , Op(..)
   , Thrist(..)
   , Q(..)
   , Cat(..)
   , Rev(..)
+  , foldCat
   , pattern Cons
   , pattern Snoc
   , pattern Nil
@@ -34,6 +37,7 @@ module Aligned.Internal
 import Prelude hiding (id,(.))
 import Control.Category
 import Data.Kind
+import Data.Default
 
 --------------------------------------------------------------------------------
 -- * Interface
@@ -42,6 +46,9 @@ import Data.Kind
 data View l r a b where
   (:&:) :: l b c -> r a b -> View l r a c
   Empty :: View l r a a
+
+instance a ~ b => Default (View l r a b) where
+  def = Empty
 
 class Cons t where
   cons :: f b c -> t f a b -> t f a c
@@ -83,11 +90,17 @@ instance Category f => Category (Op f) where
   id = Op id
   Op f . Op g = Op (g . f)
 
+instance Default (f b a) => Default (Op f a b) where
+  def = Op def
+
 --------------------------------------------------------------------------------
 -- * Reversing containers
 --------------------------------------------------------------------------------
 
 newtype Rev t f a b = Rev { runRev :: t (Op f) b a }
+
+instance Default (t (Op f) b a) => Default (Rev t f a b) where
+  def = Rev def
 
 instance Category (t (Op f)) => Category (Rev t f) where
   id = Rev id
@@ -123,6 +136,9 @@ data Thrist f a b where
   Id   :: Thrist f a a
   (:.) :: f b c -> !(Thrist f a b) -> Thrist f a c
 
+instance a ~ b => Default (Thrist f a b) where
+  def = Id
+
 {-# complete Nil, Cons :: Thrist #-}
 {-# complete Id , Cons :: Thrist #-}
 {-# complete Nil, (:.) :: Thrist #-}
@@ -154,6 +170,9 @@ data Q f a b where
   Q :: !(Thrist f b c) -> !(Rev Thrist f a b) -> !(Thrist f b x) -> Q f a c
 
 {-# complete Nil, Cons :: Q #-}
+
+instance a ~ b => Default (Q f a b) where
+  def = nil
 
 instance Nil Q where
   nil = Q nil nil nil
@@ -193,6 +212,19 @@ data Cat f a b where
 {-# complete E  , Cons :: Cat #-}
 {-# complete Nil, C    :: Cat #-}
 
+foldCat
+  :: forall f g a b. Category g
+  => (forall x y. f x y -> g x y)
+  -> Cat f a b -> g a b
+foldCat f2g = go where
+  go :: Cat f x y -> g x y
+  go E = id
+  go (Cons f fs) = f2g f . go fs
+{-# inline foldCat #-}
+
+instance a ~ b => Default (Cat f a b) where
+  def = E
+
 instance Category (Cat f) where
   id = E
 
@@ -228,4 +260,3 @@ instance Singleton Cat where
 
 instance Snoc Cat where
   snoc xs a = xs . singleton a
-

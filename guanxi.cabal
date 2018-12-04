@@ -37,6 +37,7 @@ library
     base                >= 4   && < 5,
     containers,
     contravariant,
+    data-default,
     fingertree,
     hashable,
     lens,
