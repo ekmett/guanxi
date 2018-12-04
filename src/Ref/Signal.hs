@@ -1,5 +1,4 @@
-{-# language AllowAmbiguousTypes #-}
-{-# language DefaultSignatures #-}
+{-# language AllowAmbiguousTypes #-} {-# language DefaultSignatures #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language ViewPatterns #-}
@@ -17,6 +16,7 @@
 {-# language TypeApplications #-}
 {-# language TypeFamilies #-}
 {-# language TypeOperators #-}
+{-# language GeneralizedNewtypeDeriving #-}
 
 -- |
 -- Copyright :  (c) Edward Kmett 2018
@@ -25,36 +25,43 @@
 -- Stability :  experimental
 -- Portability: non-portable
 
-module Ref.Cell
-  ( Propagator(..), newPropagator, newPropagator_
-  , aim, fire_
-  , Var(..), newVar, newVar_, fire
+module Ref.Signal
+  ( Signal(..)
+  , newSignal
+  , newSignal_
+  , fire, scope
+  , Signals
+  , HasSignals(..)
   , ground
-  , Sink(..), writeSink
-  , HasCellIds(..)
-  , HasCellEnv(..), Cell(..), CellEnv, defaultCellEnv
+  , propagate
+  -- implementation
+  , HasSignalEnv(..)
+  , SignalEnv
+  , defaultSignalEnv
+  , Cell
   -- utility
-  , Cells, Propagators
   ) where
 
 import Control.Monad.State
 import Control.Lens
 import Data.IntSet as IntSet
 import Data.Foldable as Foldable
-import Data.Functor.Contravariant.Divisible
 import Data.Function (on)
+import Data.Kind
+import Data.Proxy
 import Data.Set as Set -- HashSet?
-import Data.Void
 import Ref.Env as Env
 import Ref.Base
 import Ref.Key
 
-type Cells = IntSet -- TODO: newtype this, users see it
+newtype Signals (m :: Type -> Type) = Signals { getSignals :: IntSet }
+  deriving (Semigroup, Monoid)
+
 type Propagators m = Set (Propagator m)  -- TODO: newtype this, users see it
 
 data Propagator m = Propagator
-  { propagatorAction :: m ()
-  , propSources, propTargets :: !Cells -- TODO: added for future topological analysis 
+  { _propagatorAction :: m ()
+  , _propSources, _propTargets :: !(Signals m)-- TODO: added for future topological analysis 
   , propagatorId :: {-# unpack #-} !Int
   }
 
@@ -74,26 +81,7 @@ instance Applicative m => Semigroup (Cell m) where
 
 makeLenses ''Cell
 
-data Sink m a = Sink 
-  { _cellIds    :: !Cells
-  , _cellUpdate :: a -> m () -- update
-  }
-
-instance Contravariant (Sink m) where
-  contramap f (Sink m g) = Sink m (g . f)
- 
-instance Applicative m => Divisible (Sink m) where
-  conquer = Sink mempty $ \_ -> pure ()
-  divide f (Sink s g) (Sink t h) = Sink (s <> t) $ \a -> case f a of 
-     (b, c) -> g b *> h c
-
-instance Applicative m => Decidable (Sink m) where
-  lose f = Sink mempty (absurd . f)
-  choose f (Sink s g) (Sink t h) = Sink (s <> t) $ \a -> case f a of
-     Left b -> g b
-     Right c -> h c
-
-data CellEnv m = CellEnv
+data SignalEnv m = SignalEnv
   !(Env (Cell m))
   !Int
   !(Propagators m) -- pending propagators
@@ -103,11 +91,11 @@ data CellEnv m = CellEnv
   -- we'll set the flag, letting us batch more activity. this can be more useful once we have a topological
   -- sort and propagators that exploit logs
  
-defaultCellEnv :: CellEnv m
-defaultCellEnv = CellEnv Env.empty 0 mempty defaultRefEnv False
+defaultSignalEnv :: SignalEnv m
+defaultSignalEnv = SignalEnv Env.empty 0 mempty defaultRefEnv False
 
-class HasRefEnv s (KeyState m) => HasCellEnv s m | s -> m where
-  cellEnv :: Lens' s (CellEnv m)
+class HasRefEnv s (KeyState m) => HasSignalEnv s m | s -> m where
+  cellEnv :: Lens' s (SignalEnv m)
 
   cells :: Lens' s (Env (Cell m))
   cells = cellEnv.cells
@@ -121,51 +109,42 @@ class HasRefEnv s (KeyState m) => HasCellEnv s m | s -> m where
   safety :: Lens' s Bool
   safety = cellEnv.safety
 
-instance (u ~ KeyState m) => HasRefEnv (CellEnv m) u where
-  refEnv f (CellEnv c p pp r s) = f r <&> \r' -> CellEnv c p pp r' s
+instance (u ~ KeyState m) => HasRefEnv (SignalEnv m) u where
+  refEnv f (SignalEnv c p pp r s) = f r <&> \r' -> SignalEnv c p pp r' s
 
-instance HasCellEnv (CellEnv m) m where
+instance HasSignalEnv (SignalEnv m) m where
   cellEnv = id
-  cells f (CellEnv c p pp r s) = f c <&> \c' -> CellEnv c' p pp r s
-  freshPropagatorId f (CellEnv c p pp r s) = f p <&> \p' -> CellEnv c p' pp r s
+  cells f (SignalEnv c p pp r s) = f c <&> \c' -> SignalEnv c' p pp r s
+  freshPropagatorId f (SignalEnv c p pp r s) = f p <&> \p' -> SignalEnv c p' pp r s
   -- TODO: writing to the pending list with the safety off is dangerous, fix this?
-  pending f (CellEnv c p pp r s) = f pp <&> \pp' -> CellEnv c p pp' r s
-  safety f (CellEnv c p pp r s) = f s <&> CellEnv c p pp r
+  pending f (SignalEnv c p pp r s) = f pp <&> \pp' -> SignalEnv c p pp' r s
+  safety f (SignalEnv c p pp r s) = f s <&> SignalEnv c p pp r
 
-class HasCellIds t where
-  cellIds :: t -> Cells
+class HasSignals m t | t -> m where
+  signals :: t -> Signals m
 
-instance HasCellIds () where
-  cellIds = mempty
+instance (m ~ n) => HasSignals m (Proxy n) where
+  signals = mempty
 
-instance HasCellIds (Sink m a) where
-  cellIds (Sink s _) = s
+instance (m ~ n) => HasSignals m (Signals n) where
+  signals = id
 
-instance HasCellIds Cells where
-  cellIds = id
-
-newtype Var (m :: * -> *) = Var { getVar :: Int }
+newtype Signal (m :: * -> *) = Signal { getSignal :: Int }
   deriving (Eq, Ord, Show)
 
-instance HasCellIds (Var m) where
-  cellIds (Var i) = IntSet.singleton i
+instance HasSignals m (Signal m) where
+  signals (Signal i) = Signals (IntSet.singleton i)
 
-newVar_ :: (MonadState s m, HasCellEnv s m) => m (Var m)
-newVar_ = Var <$> (cells %%= allocate 1)
+newSignal_ :: (MonadState s m, HasSignalEnv s m) => m (Signal m)
+newSignal_ = Signal <$> (cells %%= allocate 1)
 
-newVar :: (MonadState s m, HasCellEnv s m) => (Var m -> m ()) -> m (Var m)
-newVar strat = do 
-  j@(Var -> vj) <- cells %%= allocate 1
+newSignal :: (MonadState s m, HasSignalEnv s m) => (Signal m -> m ()) -> m (Signal m)
+newSignal strat = do 
+  j@(Signal -> vj) <- cells %%= allocate 1
   cells.at j ?= Cell mempty (strat vj)
   pure vj
 
-writeSink :: (MonadState s m, HasCellEnv s m) => Sink m a -> a -> m ()
-writeSink (Sink _ u) a = scope (u a)
-
-aim :: (MonadState s m, HasCellEnv s m) => Propagator m -> m ()
-aim p = pending %= Set.insert p
-
-scope :: (MonadState s m, HasCellEnv s m) => m a -> m a
+scope :: (MonadState s m, HasSignalEnv s m) => m a -> m a
 scope m = join $ safety %%= \s -> (,True) $ do
   a <- m -- run m with the safety turned on, so we delay firings
   unless s $ do -- if the safety was already on do nothing
@@ -174,42 +153,42 @@ scope m = join $ safety %%= \s -> (,True) $ do
   pure a
 
 -- fire _now_
-fire__ :: (MonadState s m, HasCellEnv s m) => m ()
+fire__ :: (MonadState s m, HasSignalEnv s m) => m ()
 fire__ = join $ pending %%= \ ps -> case Set.maxView ps of
   Just (Propagator m _ _ _, ps') -> (m *> fire__, ps')
   Nothing -> (pure (), ps)
 
 -- horrible but valid schedule, til we have non-monotonic edges at least
-fire_ :: (MonadState s m, HasCellEnv s m) => m ()
+fire_ :: (MonadState s m, HasSignalEnv s m) => m ()
 fire_ = do
   s <- use safety
   unless s fire__ 
 
-fire :: (MonadState s m, HasCellEnv s m, HasCellIds v) => v -> m ()
+fire :: (MonadState s m, HasSignalEnv s m, HasSignals m v) => v -> m ()
 fire v = scope $ 
-  for_ (IntSet.toList (cellIds v)) $ \i -> use (cells.at i) >>= \case
+  for_ (IntSet.toList $ getSignals $ signals v) $ \i -> use (cells.at i) >>= \case
     Nothing -> pure ()
     Just (Cell ps _) -> pending <>= ps
 
 newPropagator
-  :: (MonadState s m, HasCellEnv s m, HasCellIds x, HasCellIds y)
+  :: (MonadState s m, HasSignalEnv s m, HasSignals m x, HasSignals m y)
   => x -- ^ sources
   -> y -- ^ targets
   -> m () -- ^ propagator action
   -> m (Propagator m)
-newPropagator (cellIds -> cs) (cellIds -> ds) act = do
+newPropagator (signals -> cs) (signals -> ds) act = do
   p <- Propagator act cs ds <$> (freshPropagatorId <<+= 1)
-  for_ (IntSet.toList cs) $ \c ->
+  for_ (IntSet.toList $ getSignals cs) $ \c ->
     cells.at c.anon (Cell mempty (pure ())) (const False) . cellPropagators %= Set.insert p
   pure p
 
-newPropagator_ 
-  :: (MonadState s m, HasCellEnv s m, HasCellIds x, HasCellIds y)
+propagate 
+  :: (MonadState s m, HasSignalEnv s m, HasSignals m x, HasSignals m y)
   => x -- ^ sources
   -> y -- ^ targets
   -> m () -- ^ propagator action
   -> m ()
-newPropagator_ x y m = void (newPropagator x y m)
+propagate x y m = void (newPropagator x y m)
 
-ground :: (MonadState s m, HasCellEnv s m) => m ()
+ground :: (MonadState s m, HasSignalEnv s m) => m ()
 ground = use cells >>= sequenceOf_ (traverse.cellStrategy)

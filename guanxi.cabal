@@ -61,7 +61,8 @@ library
     Par.Future
     Par.Promise
     Ref.Base
-    Ref.Cell
+    Ref.Signal
+    Ref.Sink
     Ref.Env
     Ref.Key
     Ref.Log

@@ -5,6 +5,7 @@
 {-# language UndecidableInstances #-}
 {-# language RankNTypes #-}
 {-# language GADTs #-}
+{-# language RoleAnnotations #-}
 
 -- |
 -- Copyright :  (c) Edward Kmett 2018
@@ -18,7 +19,7 @@
 -- by Atze van der Ploeg, Koen Claessen, and Pablo Buiras
 
 module Ref.Key 
-  ( Key(..)
+  ( Key
   , Box(..)
   , unlock
   , MonadKey(..)
@@ -46,6 +47,8 @@ import Unsafe.Coerce
 
 newtype Key s a = Key (MutVar s (Proxy a))
   deriving Eq
+
+type role Key nominal nominal
 
 instance TestEquality (Key s) where
   -- testEquality :: Key s a -> Key s b -> Maybe (a :~: b)

@@ -29,25 +29,25 @@ import FD.Var
 import Logic.Class
 import Logic.Reflection
 import Par.Monad
-import Ref.Cell
 import Ref.Key
+import Ref.Signal
 
-type FD' s = StateT (CellEnv (FD s)) (LogicT (ST s))
+type FD' s = StateT (SignalEnv (FD s)) (LogicT (ST s))
 
 newtype FD s a = FD { runFD :: Par (FD' s) a } deriving
   ( Functor, Applicative, Alternative
   , Monad, MonadPlus
-  , MonadState (CellEnv (FD s))
+  , MonadState (SignalEnv (FD s))
   , PrimMonad
   , MonadKey
   )
 
 instance MonadLogic (FD s) where
   msplit (FD m) = FD $ fmap FD <$> msplit m
- 
+
 eval :: FD s a -> LogicT (ST s) a
-eval m = evalStateT (evalStateT (statePar (runFD m)) defaultParEnv) defaultCellEnv
- 
+eval m = evalStateT (evalStateT (statePar (runFD m)) defaultParEnv) defaultSignalEnv
+
 run1 :: (forall s. FD s a) -> a
 run1 m = runST $ observeT $ eval m
 
