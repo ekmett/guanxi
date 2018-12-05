@@ -59,6 +59,11 @@ shiftM0 p f   = withSub p $ \sk -> f $ pushPrompt p . pushSub sk
 controlM p f  = withSub p $ pushPrompt p . f . pushSub
 controlM0 p f = withSub p $ f . pushSub
 
+callccM :: MonadPrompt m => ((forall b. m a -> m b) -> m a) -> m a
+callccM f = do
+  p <- newPrompt
+  withSub p $ \sk -> pushSub sk $ f $ abort p . pushSub sk
+
 instance MonadPrompt m => MonadPrompt (ReaderT e m) where
   type Prompt (ReaderT e m) = Prompt m
   type Sub (ReaderT e m) = Sub m
