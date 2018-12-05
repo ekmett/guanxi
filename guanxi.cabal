@@ -12,29 +12,28 @@ bug-reports:   http://github.com/ekmett/guanxi/issues
 copyright:     Copyright (C) 2018 Edward A. Kmett
 synopsis:      Relational programming
 description:   Relational programming.
-build-type:    Custom
+build-type:    Simple
 extra-source-files:
   CHANGELOG.md
   README.md
-  Warning.hs
+  doctest.json
   test.sh
 
 source-repository head
   type: git
   location: git://github.com/ekmett/guanxi.git
 
-custom-setup
-  setup-depends:
-    base >= 4 && <5,
-    Cabal,
-    cabal-doctest >= 1 && <1.1
+common base
+  ghc-options: -Wall -Wextra
+  default-language: Haskell2010
+  build-depends: base >= 4 && < 5
 
 library
+  import: base
   hs-source-dirs: src
   ghc-options: -Wall -Wextra
   default-language: Haskell2010
   build-depends:
-    base                >= 4   && < 5,
     containers,
     contravariant,
     data-default,
@@ -69,33 +68,29 @@ library
     Ref.Log
     Ref.Rem
     Prompt.Class
+    Prompt.Iterator
     Prompt.Reflection
     Tactic
     Unaligned.Base
     Unaligned.Internal
     Unification.Class
 
-test-suite doctests
-  default-language: Haskell2010
-  type:    exitcode-stdio-1.0
-  main-is: doctests.hs
-  ghc-options: -Wall -threaded
+common test
+  import: base
+  build-depends: guanxi
+  ghc-options: -threaded -rtsopts
   hs-source-dirs: t
-  build-depends:
-    base      >= 4,
-    guanxi,
-    doctest   >= 0.11.1 && <0.17
+
+test-suite doctest
+  import: test
+  type: exitcode-stdio-1.0
+  main-is: doctest.hs
+  build-depends: doctest
+  build-tool-depends: doctest-discover:doctest-discover
 
 test-suite spec
-  default-language: Haskell2010
+  import: test
   type: exitcode-stdio-1.0
-  hs-source-dirs: t
-  build-tool-depends: hspec-discover:hspec-discover
   main-is: spec.hs
-  ghc-options: -Wall -threaded -rtsopts
-
-  build-depends:
-    base             >= 4    && < 5,
-    guanxi,
-    generic-deriving >= 1.11 && < 2,
-    hspec            >= 2    && < 3
+  build-depends: hspec >= 2 && < 3
+  build-tool-depends: hspec-discover:hspec-discover

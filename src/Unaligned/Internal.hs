@@ -205,7 +205,10 @@ rotate _ _ _ = error "Q.rotate: invariant broken"
 --------------------------------------------------------------------------------
 
 data Cat a = E | C a !(Q (Cat a))
-  deriving (Show, Functor, Foldable, Traversable)
+  deriving (Functor, Foldable, Traversable)
+
+instance Show a => Show (Cat a) where
+  showsPrec d = showsPrec d . Foldable.toList 
 
 {-# complete Nil, C #-}
 {-# complete E, Cons #-}

@@ -13,6 +13,7 @@ module Prompt.Reflection
   ( CC
   , runCC
   , runCC_
+  , runPrompt
   ) where
 
 import Aligned.Base
@@ -23,6 +24,7 @@ import Control.Monad.Fail as MonadFail
 import Control.Monad.IO.Class
 import Control.Monad.Primitive
 import Control.Monad.State.Class
+import Control.Monad.ST
 import Control.Monad.Trans.Class
 import Data.Type.Equality
 import Prelude hiding (id,(.))
@@ -170,3 +172,6 @@ runCC_ :: MonadFail m => CC m a -> m a
 runCC_ = runCC $ MonadFail.fail "missing prompt"
 {-# inlineable runCC_ #-}
 
+runPrompt :: (forall m. MonadPrompt m => m a) -> a
+runPrompt m = runST $ runCC (error "missing prompt") m
+{-# inline runPrompt #-}
