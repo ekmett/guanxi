@@ -18,6 +18,7 @@ import Aligned.Base
 import Control.Arrow (Kleisli(..))
 import Control.Category
 import Control.Monad as Monad
+import Control.Monad.Cont.Class
 import Control.Monad.Fail as MonadFail
 import Control.Monad.IO.Class
 import Control.Monad.Primitive
@@ -66,14 +67,14 @@ bindk fk = \case
 
 bind :: KC m b c -> DC m a b -> CC m a -> CC m c
 bind fk fd = case unsnoc fd of
-  Empty -> bindk fk 
+  Empty -> bindk fk
   t :&: Del p h -> \case
     WithSC sk sd cp ck -> WithSC fk (snoc t (Del p (h . sk)) . sd) cp ck
     CC sk sd cc        -> CC fk (snoc t (Del p (h . sk)) . sd) cc
 {-# inline bind #-}
 
 instance Applicative m => Functor (CC m) where
-  fmap = liftM 
+  fmap = liftM
   {-# inlineable fmap #-}
 
 instance Applicative m => Applicative (CC m) where
@@ -87,7 +88,7 @@ instance Applicative m => Monad (CC m) where
   CC sk sd p         >>= f = CC     (cons (Kleisli f) sk) sd p
   {-# inlineable (>>=) #-}
   -- fail = CC id id . Monad.fail
- 
+
 instance MonadFail m => MonadFail (CC m) where
   fail = lift . MonadFail.fail
 
@@ -106,6 +107,10 @@ instance MonadKey m => MonadKey (CC m) where
 instance MonadTrans CC where
   lift = CC id id
   {-# inlineable lift #-}
+
+instance MonadKey m => MonadCont (CC m) where
+  callCC = callcc
+  {-# inline callCC #-}
 
 instance MonadKey m => MonadPrompt (CC m) where
   type Prompt (CC m) = P m

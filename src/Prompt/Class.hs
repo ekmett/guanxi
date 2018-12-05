@@ -1,10 +1,12 @@
 {-# language TypeFamilies #-}
 {-# language FlexibleContexts #-}
+{-# language RankNTypes #-}
 
 module Prompt.Class where
 
 import Control.Category
 import Control.Monad
+import Control.Monad.Cont.Class
 import Control.Monad.Reader
 import Data.Kind
 import Data.Type.Coercion
@@ -13,7 +15,7 @@ import Prelude hiding ((.),id)
 
 -- delimited continuations
 class
-  ( Monad m
+  ( MonadCont m
   , Category (Sub m)
   , TestCoercion (Prompt m)
   , TestEquality (Prompt m)
@@ -37,6 +39,15 @@ shift p f    = withSub p $ \sk -> pushPrompt p $ f $ pushPrompt p . pushSub sk .
 shift0 p f   = withSub p $ \sk -> f $ pushPrompt p . pushSub sk . return
 control p f  = withSub p $ \sk -> pushPrompt p $ f $ pushSub sk . return
 control0 p f = withSub p $ \sk -> f $ pushSub sk . return
+
+-- | proper rank-3 call/cc. This serves two purposes, it provides an
+-- implementation of the more general call/cc. It also provides a valid
+-- default definition for callCC from MonadCont, justifying having it
+-- as a superclass above MonadPrompt
+callcc :: MonadPrompt m => ((forall b. a -> m b) -> m a) -> m a
+callcc f = do
+  p <- newPrompt
+  withSub p $ \sk -> pushSub sk $ f $ abort p . pushSub sk . return
 
 abort :: MonadPrompt m => Prompt m b -> m b -> m a
 abort p = withSub p . const
