@@ -16,8 +16,7 @@ build-type:    Simple
 extra-source-files:
   CHANGELOG.md
   README.md
-  doctest.json
-  test.sh
+  test/doctest.json
 
 source-repository head
   type: git
@@ -79,18 +78,19 @@ common test
   import: base
   build-depends: guanxi
   ghc-options: -threaded -rtsopts
-  hs-source-dirs: t
+  hs-source-dirs: test
 
 test-suite doctest
   import: test
   type: exitcode-stdio-1.0
-  main-is: doctest.hs
+  main-is: doctest-main.hs
   build-depends: doctest
   build-tool-depends: doctest-discover:doctest-discover
 
 test-suite spec
   import: test
   type: exitcode-stdio-1.0
-  main-is: spec.hs
+  main-is: spec-main.hs
+  other-modules: Spec
   build-depends: hspec >= 2 && < 3
   build-tool-depends: hspec-discover:hspec-discover
