@@ -68,6 +68,8 @@ library
     Ref.Key
     Ref.Log
     Ref.Rem
+    Prompt.Class
+    Prompt.Reflection
     Tactic
     Unaligned.Base
     Unaligned.Internal
