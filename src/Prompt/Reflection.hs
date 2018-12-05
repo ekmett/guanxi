@@ -67,7 +67,11 @@ instance Monad m => Functor (CC m) where
 instance Monad m => Applicative (CC m) where
   pure a = CC (pure a) id id
   {-# inlineable pure #-}
-  (<*>) = ap
+  (<*>) = ap -- a bit lazier
+  -- WithSC cp ck sd sk <*> WithSC cp' ck' sd' sk' = WithSC cp ck sd $ cons (Kleisli $ \f -> WithSC cp' ck' sd' $ cons (Kleisli $ pure . f) sk') sk
+  -- WithSC cp ck sd sk <*> CC p' sd' sk'          = WithSC cp ck sd $ cons (Kleisli $ \f -> CC p' sd'          $ cons (Kleisli $ pure . f) sk') sk
+  -- CC p sd sk         <*> WithSC cp' ck' sd' sk' = CC p sd         $ cons (Kleisli $ \f -> WithSC cp' ck' sd' $ cons (Kleisli $ pure . f) sk') sk
+  -- CC p sd sk         <*> CC p' sd' sk'          = CC p sd         $ cons (Kleisli $ \f -> CC p' sd'          $ cons (Kleisli $ pure . f) sk') sk
   {-# inlineable (<*>) #-}
 
 instance Monad m => Monad (CC m) where
@@ -99,6 +103,7 @@ instance MonadTrans CC where
 instance MonadKey m => MonadPrompt (CC m) where
   type Prompt (CC m) = P m
   type Sub (CC m) = SC m
+
   newPrompt = CC newKey id id
   {-# inlineable newPrompt #-}
   pushPrompt p = mapSC $ \(SC d t) -> SC (cons (Del p t) d) id
