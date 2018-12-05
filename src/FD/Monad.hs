@@ -3,14 +3,11 @@
 {-# language UndecidableInstances #-}
 {-# language PolyKinds #-}
 {-# language DataKinds #-}
-{-# language UnboxedTuples #-}
 {-# language OverloadedLists #-}
-{-# language TemplateHaskell #-}
 {-# language MultiParamTypeClasses #-}
 {-# language FlexibleInstances #-}
-{-# language FunctionalDependencies #-}
 {-# language TypeFamilies #-}
-{-# language StandaloneDeriving #-}
+{-# language UnboxedTuples #-}
 
 -- |
 -- Copyright :  (c) Edward Kmett 2018

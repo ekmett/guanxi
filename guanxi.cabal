@@ -14,7 +14,9 @@ synopsis:      Relational programming
 description:   Relational programming.
 build-type:    Simple
 extra-source-files:
+  .hlint.yaml
   CHANGELOG.md
+  QUESTIONS.md
   README.md
   test/doctest.json
 

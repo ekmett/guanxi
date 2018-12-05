@@ -71,7 +71,7 @@ unifyMeta :: (Alternative m, MonadState s m, HasRefEnv s u, Reference v u (Maybe
 unifyMeta a x = readRef a >>= \case
   Nothing -> do
     x' <- zonk x
-    guard $ not $ any (a ==) x'
+    guard $ notElem a x'
     x' <$ writeRef a (Just x')
   Just y -> do
     y' <- unify x y

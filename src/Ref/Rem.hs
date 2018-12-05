@@ -1,4 +1,3 @@
-{-# language TemplateHaskell #-}
 {-# language FlexibleInstances #-}
 {-# language FlexibleContexts #-}
 {-# language MultiParamTypeClasses #-}

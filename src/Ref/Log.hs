@@ -1,13 +1,13 @@
+{-# language CPP #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
-{-# language FunctionalDependencies #-}
 {-# language BangPatterns #-}
-{-# language TemplateHaskell #-}
 {-# language MultiWayIf #-}
 {-# language RankNTypes #-}
 {-# language GADTs #-}
 {-# language DeriveTraversable #-}
 {-# language ScopedTypeVariables #-}
+{-# language MultiParamTypeClasses #-}
 
 -- |
 -- Copyright :  (c) Edward Kmett 2018
@@ -85,8 +85,10 @@ watchOld (LogState t v c m) = case viewl t of
   EmptyL -> (v, LogState t v (c+1) m)
   LogEntry ov oc a F.:< t' -> (ov, LogState (LogEntry ov (oc+1) a F.<| t') v c m)
  
+#ifndef HLINT
 data Log u a where
   Log :: Semigroup a => { getLog :: Ref u (LogState a) } -> Log u a
+#endif
 
 log :: HasRefEnv s u => Log u a -> Lens' s (LogState a)
 log = ref . getLog

@@ -1,14 +1,9 @@
 {-# language DeriveTraversable #-}
 {-# language RankNTypes #-}
-{-# language LambdaCase #-}
 {-# language MultiParamTypeClasses #-}
-{-# language BangPatterns #-}
-{-# language ViewPatterns #-}
 {-# language ExplicitNamespaces #-}
-{-# language TemplateHaskell #-}
 {-# language FlexibleInstances #-}
 {-# language TypeFamilies #-}
-{-# language FunctionalDependencies #-}
 
 -- |
 -- Copyright :  (c) Edward Kmett 2018

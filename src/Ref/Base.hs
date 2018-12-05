@@ -63,7 +63,7 @@ instance Ord (Ref u a) where
 instance TestCoercion (Ref u) where
   testCoercion (Ref _ u i) (Ref _ v j) = guard (i == j) *> testCoercion u v
 
-data RefEnv u = RefEnv { _refs :: Env (Cobox u) }
+newtype RefEnv u = RefEnv { _refs :: Env (Cobox u) }
 
 instance Default (RefEnv u) where
   def = RefEnv def
