@@ -28,9 +28,8 @@ import Data.Type.Equality
 import Prelude hiding (id,(.))
 import Prompt.Class
 import Ref.Key
-import qualified Unaligned.Base as U
 
--- Thoughts: if we always used prompts in ascending order, which I intend to, then we could use a
+-- Thoughts: if we always used prompts in ascending order, which I intend to, in practice, then we could use a
 -- type aligned fingertree, rather than Rev Cat in DC, giving slower appends, but giving log
 -- time indexing for splitting the continuation. This would require reintroducing the 'P' machinery
 -- for producing prompts with an Ord instance, rather than just offering equatable prompts.
@@ -48,7 +47,8 @@ data SC m a b where
   SC :: !(KC m w b) -> !(DC m a w) -> SC m a b
 
 data CC m a where
-  WithSC :: !(KC m y a) -> !(DC m w y) -> {-# unpack #-} !(P m x) -> (SC m w x -> CC m x) -> CC m a
+  WithSC
+    :: !(KC m y a) -> !(DC m w y) -> {-# unpack #-} !(P m x) -> (forall z. KC m z x -> DC m w z -> CC m x) -> CC m a
   CC :: !(KC m y a) -> !(DC m w y) -> m w -> CC m a
 
 instance Category (SC m) where
@@ -58,14 +58,19 @@ instance Category (SC m) where
     t :&: Del p h -> SC fk (snoc t (Del p (h . sk)) . sd)
   {-# inline (.) #-}
 
+bindk :: KC m a b -> CC m a -> CC m b
+bindk fk = \case
+  WithSC sk sd cp ck -> WithSC (fk . sk) sd cp ck
+  CC sk sd cc        -> CC (fk . sk) sd cc
+{-# inline bindk #-}
+
 bind :: KC m b c -> DC m a b -> CC m a -> CC m c
 bind fk fd = case unsnoc fd of
-  Empty -> \case
-    WithSC sk sd cp ck -> WithSC (fk . sk) sd cp ck
-    CC sk sd cc        -> CC (fk . sk) sd cc
+  Empty -> bindk fk 
   t :&: Del p h -> \case
     WithSC sk sd cp ck -> WithSC fk (snoc t (Del p (h . sk)) . sd) cp ck
     CC sk sd cc        -> CC fk (snoc t (Del p (h . sk)) . sd) cc
+{-# inline bind #-}
 
 instance Applicative m => Functor (CC m) where
   fmap = liftM 
@@ -113,7 +118,7 @@ instance MonadKey m => MonadPrompt (CC m) where
   pushPrompt p (CC     sk sd cc)    = CC     id (cons (Del p sk) sd) cc
   {-# inlineable pushPrompt #-}
 
-  withSub = WithSC id id
+  withSub p f = WithSC id id p (\fk fd -> f (SC fk fd))
   {-# inlineable withSub #-}
 
   pushSub (SC k d) = bind k d
@@ -132,29 +137,34 @@ runCC e = goCC where
   goCC :: CC m a -> m a
   goCC (CC l d m) = m >>= goSC l d
   goCC (WithSC l d p f) = case split p d of
-    r U.:&: sc -> goCC $ bind l r (f sc)
-    U.Empty -> e
+    Split r fk fd -> goCC $ bind l r (f fk fd)
+    Unsplit -> e
 
   goSC :: Monad m => KC m x a -> DC m w x -> w -> m a
   goSC l d x = case unsnoc d of
     Empty -> case unsnoc l of
       Empty -> pure x
-      t :&: Kleisli f -> goCC $! case f x of
-        WithSC sk sd cp ck -> WithSC (t . sk) sd cp ck
-        CC sk sd p -> CC (t . sk) sd p
+      t :&: Kleisli f -> goCC $ bindk t (f x)
     t :&: Del p h -> case unsnoc h of
       Empty -> goSC l t x
       ti :&: Kleisli f -> goCC $ bind l (t `snoc` Del p ti) (f x)
 {-# inlineable runCC #-}
 
-split :: Key (KeyState m) w -> DC m a b -> U.View (DC m w b) (SC m a w)
-split p q = case unsnoc q of
-  Empty -> U.Empty
-  t :&: Del p' sk -> case testEquality p p' of
-    Just Refl -> t U.:&: SC sk id
-    Nothing -> case split p t of
-      sk' U.:&: SC tl dl -> sk' U.:&: SC tl (dl `snoc` Del p' sk)
-      U.Empty -> U.Empty
+data Split m w a c where
+  Split :: DC m w c -> KC m b w -> DC m a b -> Split m w a c
+  Unsplit :: Split m w a b
+
+split :: forall m w a b. Key (KeyState m) w -> DC m a b -> Split m w a b
+split p = go where
+  go :: DC m a' b -> Split m w a' b
+  go q = case unsnoc q of
+    Empty -> Unsplit
+    t :&: Del p' sk -> case testEquality p p' of
+      Just Refl -> Split t sk id
+      Nothing -> case go t of
+        Split sk' tl dl -> Split sk' tl (dl `snoc` Del p' sk)
+        Unsplit -> Unsplit
+{-# inline split #-}
 
 runCC_ :: MonadFail m => CC m a -> m a
 runCC_ = runCC $ MonadFail.fail "missing prompt"
