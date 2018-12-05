@@ -11,7 +11,7 @@ homepage:      http://github.com/ekmett/guanxi/
 bug-reports:   http://github.com/ekmett/guanxi/issues
 copyright:     Copyright (C) 2018 Edward A. Kmett
 synopsis:      Relational programming
-description:   Relational programming.
+description:   Propagator-based relational programming in Haskell.
 build-type:    Simple
 extra-source-files:
   .hlint.yaml
@@ -23,6 +23,10 @@ extra-source-files:
 source-repository head
   type: git
   location: git://github.com/ekmett/guanxi.git
+
+--------------------------------------------------------
+-- * Library
+--------------------------------------------------------
 
 common base
   ghc-options: -Wall -Wextra
@@ -75,6 +79,10 @@ library
     Unaligned.Base
     Unaligned.Internal
     Unification.Class
+
+--------------------------------------------------------
+-- * Tests
+--------------------------------------------------------
 
 common test
   import: base
