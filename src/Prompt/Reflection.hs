@@ -7,6 +7,7 @@
 {-# language TemplateHaskell #-}
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
+{-# language LambdaCase #-}
 
 module Prompt.Reflection
   ( CC
@@ -29,6 +30,14 @@ import Prompt.Class
 import Ref.Key
 import qualified Unaligned.Base as U
 
+-- Thoughts: if we always used prompts in ascending order, which I intend to, then we could use a
+-- type aligned fingertree, rather than Rev Cat in DC, giving slower appends, but giving log
+-- time indexing for splitting the continuation. This would require reintroducing the 'P' machinery
+-- for producing prompts with an Ord instance, rather than just offering equatable prompts.
+--
+-- An even fancier version would do something like the Log machinery, but type aligned. There
+-- we could delete knowably unnecessary prompts retroactively.
+
 type P m = Key (KeyState m) -- prompts
 type KC m = Rev Cat (Kleisli (CC m))
 type DC m = Rev Cat (Del m)
@@ -36,50 +45,43 @@ type DC m = Rev Cat (Del m)
 data Del m a b = Del {-# unpack #-} !(P m b) !(KC m a b)
 
 data SC m a b where
-  SC :: !(DC m a w) -> !(KC m w b) -> SC m a b
+  SC :: !(KC m w b) -> !(DC m a w) -> SC m a b
 
 data CC m a where
-  WithSC :: {-# unpack #-} !(P m x) -> (SC m w x -> CC m x) -> !(DC m w y) -> !(KC m y a) -> CC m a
-  CC :: m w -> !(DC m w y) -> !(KC m y a) -> CC m a
-
-mapSC :: (forall w. SC m w a -> SC m w b) -> CC m a -> CC m b
-mapSC f (WithSC cp ck sd sk) = case f (SC sd sk) of
-  SC sd' sk' -> WithSC cp ck sd' sk'
-mapSC f (CC p sd sk) = case f (SC sd sk) of
-  SC sd' sk' -> CC p sd' sk'
-{-# inline mapSC #-}
+  WithSC :: !(KC m y a) -> !(DC m w y) -> {-# unpack #-} !(P m x) -> (SC m w x -> CC m x) -> CC m a
+  CC :: !(KC m y a) -> !(DC m w y) -> m w -> CC m a
 
 instance Category (SC m) where
   id = SC id id
-  SC cat_bw kwc . SC cat_aw1 kw1b = case unsnoc cat_bw of
-    Empty -> SC cat_aw1 (kwc . kw1b)
-    t :&: Del p h -> SC (snoc t (Del p (h . kw1b)) . cat_aw1) kwc
+  SC fk fd . SC sk sd = case unsnoc fd of
+    Empty -> SC (fk . sk) sd
+    t :&: Del p h -> SC fk (snoc t (Del p (h . sk)) . sd)
   {-# inline (.) #-}
 
-(!>>=) :: CC m a -> SC m a b -> CC m b
-m !>>= f = mapSC (f.) m
-{-# inline (!>>=) #-}
+bind :: KC m b c -> DC m a b -> CC m a -> CC m c
+bind fk fd = case unsnoc fd of
+  Empty -> \case
+    WithSC sk sd cp ck -> WithSC (fk . sk) sd cp ck
+    CC sk sd cc        -> CC (fk . sk) sd cc
+  t :&: Del p h -> \case
+    WithSC sk sd cp ck -> WithSC fk (snoc t (Del p (h . sk)) . sd) cp ck
+    CC sk sd cc        -> CC fk (snoc t (Del p (h . sk)) . sd) cc
 
-instance Monad m => Functor (CC m) where
-  fmap = liftM
+instance Applicative m => Functor (CC m) where
+  fmap = liftM 
   {-# inlineable fmap #-}
 
-instance Monad m => Applicative (CC m) where
-  pure a = CC (pure a) id id
+instance Applicative m => Applicative (CC m) where
+  pure = CC id id . pure
   {-# inlineable pure #-}
-  (<*>) = ap -- a bit lazier
-  -- WithSC cp ck sd sk <*> WithSC cp' ck' sd' sk' = WithSC cp ck sd $ cons (Kleisli $ \f -> WithSC cp' ck' sd' $ cons (Kleisli $ pure . f) sk') sk
-  -- WithSC cp ck sd sk <*> CC p' sd' sk'          = WithSC cp ck sd $ cons (Kleisli $ \f -> CC p' sd'          $ cons (Kleisli $ pure . f) sk') sk
-  -- CC p sd sk         <*> WithSC cp' ck' sd' sk' = CC p sd         $ cons (Kleisli $ \f -> WithSC cp' ck' sd' $ cons (Kleisli $ pure . f) sk') sk
-  -- CC p sd sk         <*> CC p' sd' sk'          = CC p sd         $ cons (Kleisli $ \f -> CC p' sd'          $ cons (Kleisli $ pure . f) sk') sk
+  (<*>) = ap
   {-# inlineable (<*>) #-}
 
-instance Monad m => Monad (CC m) where
-  WithSC cp ck sd sk >>= f = WithSC cp ck sd (cons (Kleisli f) sk)
-  CC p sd sk >>= f = CC p sd (cons (Kleisli f) sk)
+instance Applicative m => Monad (CC m) where
+  WithSC sk sd cp ck >>= f = WithSC (cons (Kleisli f) sk) sd cp ck
+  CC sk sd p         >>= f = CC     (cons (Kleisli f) sk) sd p
   {-# inlineable (>>=) #-}
-
-  fail = lift . Monad.fail
+  -- fail = CC id id . Monad.fail
  
 instance MonadFail m => MonadFail (CC m) where
   fail = lift . MonadFail.fail
@@ -97,20 +99,24 @@ instance MonadKey m => MonadKey (CC m) where
   type KeyState (CC m) = KeyState m
 
 instance MonadTrans CC where
-  lift m = CC m id id
+  lift = CC id id
   {-# inlineable lift #-}
 
 instance MonadKey m => MonadPrompt (CC m) where
   type Prompt (CC m) = P m
   type Sub (CC m) = SC m
 
-  newPrompt = CC newKey id id
+  newPrompt = lift newKey
   {-# inlineable newPrompt #-}
-  pushPrompt p = mapSC $ \(SC d t) -> SC (cons (Del p t) d) id
+
+  pushPrompt p (WithSC sk sd cp ck) = WithSC id (cons (Del p sk) sd) cp ck
+  pushPrompt p (CC     sk sd cc)    = CC     id (cons (Del p sk) sd) cc
   {-# inlineable pushPrompt #-}
-  withSub p f = WithSC p f id id
+
+  withSub = WithSC id id
   {-# inlineable withSub #-}
-  pushSub = flip (!>>=)
+
+  pushSub (SC k d) = bind k d
   {-# inlineable pushSub #-}
 
 instance MonadState s m => MonadState s (CC m) where
@@ -124,32 +130,33 @@ instance MonadState s m => MonadState s (CC m) where
 runCC :: forall m a. Monad m => m a -> CC m a -> m a
 runCC e = goCC where
   goCC :: CC m a -> m a
-  goCC (CC m d l) = m >>= goSC d l
-  goCC (WithSC p f d l) = case split p d of
-    sc U.:&: r -> goCC $ f sc !>>= SC r l
+  goCC (CC l d m) = m >>= goSC l d
+  goCC (WithSC l d p f) = case split p d of
+    r U.:&: sc -> goCC $ bind l r (f sc)
     U.Empty -> e
 
-  goSC :: Monad m => DC m w x -> KC m x a -> w -> m a
-  goSC d l x = case unsnoc d of
+  goSC :: Monad m => KC m x a -> DC m w x -> w -> m a
+  goSC l d x = case unsnoc d of
     Empty -> case unsnoc l of
       Empty -> pure x
       t :&: Kleisli f -> goCC $! case f x of
-        WithSC cp ck sd sk -> WithSC cp ck sd (t . sk)
-        CC p sd sk -> CC p sd (t . sk)
+        WithSC sk sd cp ck -> WithSC (t . sk) sd cp ck
+        CC sk sd p -> CC (t . sk) sd p
     t :&: Del p h -> case unsnoc h of
-      Empty -> goSC t l x
-      ti :&: Kleisli f -> goCC $ f x !>>= SC (t `snoc` Del p ti) l
+      Empty -> goSC l t x
+      ti :&: Kleisli f -> goCC $ bind l (t `snoc` Del p ti) (f x)
 {-# inlineable runCC #-}
 
-split :: Key (KeyState m) w -> DC m a b -> U.View (SC m a w) (DC m w b)
+split :: Key (KeyState m) w -> DC m a b -> U.View (DC m w b) (SC m a w)
 split p q = case unsnoc q of
   Empty -> U.Empty
   t :&: Del p' sk -> case testEquality p p' of
-    Just Refl -> SC id sk U.:&: t
+    Just Refl -> t U.:&: SC sk id
     Nothing -> case split p t of
-      SC dl tl U.:&: sk' -> SC (dl `snoc` Del p' sk) tl U.:&: sk'
+      sk' U.:&: SC tl dl -> sk' U.:&: SC tl (dl `snoc` Del p' sk)
       U.Empty -> U.Empty
 
 runCC_ :: MonadFail m => CC m a -> m a
 runCC_ = runCC $ MonadFail.fail "missing prompt"
 {-# inlineable runCC_ #-}
+
