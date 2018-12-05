@@ -8,12 +8,20 @@ import Control.Monad
 import Control.Monad.Reader
 import Data.Kind
 import Data.Type.Coercion
+import Data.Type.Equality
 import Prelude hiding ((.),id)
 
 -- delimited continuations
-class (Monad m, Category (Sub m), TestCoercion (Prompt m)) => MonadPrompt m where
+class
+  ( Monad m
+  , Category (Sub m)
+  , TestCoercion (Prompt m)
+  , TestEquality (Prompt m)
+  ) => MonadPrompt m where
+
   type Prompt m :: Type -> Type
   type Sub m :: Type -> Type -> Type
+
   newPrompt  :: m (Prompt m a)
   pushPrompt :: Prompt m a -> m a -> m a
   withSub :: Prompt m b -> (Sub m a b -> m b) -> m a
