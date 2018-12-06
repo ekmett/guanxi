@@ -53,9 +53,10 @@ library
     Aligned.Base
     Aligned.Free
     Aligned.Freer
-    Back.Ref
     FD.Monad
     FD.Var
+    Key
+    Key.Coercible
     Logic.Class
     Logic.Cont
     Logic.Naive
@@ -68,7 +69,6 @@ library
     Ref.Signal
     Ref.Sink
     Ref.Env
-    Ref.Key
     Ref.Log
     Ref.Rem
     Prompt.Class

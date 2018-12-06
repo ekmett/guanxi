@@ -27,7 +27,6 @@ import FD.Var
 import Logic.Class
 import Logic.Reflection as Reflection
 import Par.Cont as Cont
-import Ref.Key
 import Ref.Signal
 
 type FD' s = StateT (SignalEnv (FD s)) (Reflection.LogicT (ST s))
@@ -39,7 +38,6 @@ newtype FD s a = FD { runFD :: Cont.Par (FD' s) a } deriving
   , Monad, MonadPlus
   , MonadState (SignalEnv (FD s))
   , PrimMonad
-  , MonadKey
   )
 
 instance MonadLogic (FD s) where

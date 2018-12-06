@@ -51,8 +51,6 @@ import Data.Kind
 import Data.Proxy
 import Data.Set as Set -- HashSet?
 import Ref.Env as Env
-import Ref.Base
-import Ref.Key
 
 newtype Signals (m :: Type -> Type) = Signals { getSignals :: IntSet }
   deriving (Semigroup, Monoid)
@@ -89,15 +87,15 @@ data SignalEnv m = SignalEnv
   !(Env (Cell m))
   !Int
   !(Propagators m) -- pending propagators
-  !(RefEnv (KeyState m))
   !Bool
 
 instance Default (SignalEnv m) where
-  def = SignalEnv def 0 mempty def False
+  def = SignalEnv def 0 mempty False
 
-class HasRefEnv s (KeyState m) => HasSignalEnv s m | s -> m where
+class HasSignalEnv s m | s -> m where
   signalEnv :: Lens' s (SignalEnv m)
 
+  -- these could become references, threaded onto a singly linked list in the env
   cells :: Lens' s (Env (Cell m))
   cells = signalEnv.cells
 
@@ -107,19 +105,17 @@ class HasRefEnv s (KeyState m) => HasSignalEnv s m | s -> m where
   pending :: Lens' s (Propagators m)
   pending = signalEnv.pending
 
+  -- if we move to a reader discipline then this being updated only with local makes sense
   safety :: Lens' s Bool
   safety = signalEnv.safety
 
-instance (u ~ KeyState m) => HasRefEnv (SignalEnv m) u where
-  refEnv f (SignalEnv c p pp r s) = f r <&> \r' -> SignalEnv c p pp r' s
-
 instance HasSignalEnv (SignalEnv m) m where
   signalEnv = id
-  cells f (SignalEnv c p pp r s) = f c <&> \c' -> SignalEnv c' p pp r s
-  freshPropagatorId f (SignalEnv c p pp r s) = f p <&> \p' -> SignalEnv c p' pp r s
+  cells f (SignalEnv c p pp s) = f c <&> \c' -> SignalEnv c' p pp s
+  freshPropagatorId f (SignalEnv c p pp s) = f p <&> \p' -> SignalEnv c p' pp s
   -- TODO: writing to the pending list with the safety off is dangerous, fix this?
-  pending f (SignalEnv c p pp r s) = f pp <&> \pp' -> SignalEnv c p pp' r s
-  safety f (SignalEnv c p pp r s) = f s <&> SignalEnv c p pp r
+  pending f (SignalEnv c p pp s) = f pp <&> \pp' -> SignalEnv c p pp' s
+  safety f (SignalEnv c p pp s) = f s <&> SignalEnv c p pp
 
 class HasSignals m t | t -> m where
   signals :: t -> Signals m

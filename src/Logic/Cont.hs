@@ -25,7 +25,6 @@ import Data.Foldable (fold)
 import Data.Functor.Identity
 import Logic.Class
 import Unaligned.Base
-import Ref.Key
 
 newtype LogicT m a = LogicT
   { runLogicT :: forall r. (a -> m r -> m r) -> m r -> m r
@@ -96,9 +95,6 @@ instance MonadError e m => MonadError e (LogicT m) where
 instance PrimMonad m => PrimMonad (LogicT m) where
   type PrimState (LogicT m) = PrimState m
   primitive f = lift (primitive f)
-
-instance MonadKey m => MonadKey (LogicT m) where
-  type KeyState (LogicT m) = KeyState m
 
 observe :: Logic a -> a
 observe = runIdentity . observeT

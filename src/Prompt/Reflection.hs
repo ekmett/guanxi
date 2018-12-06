@@ -26,9 +26,9 @@ import Control.Monad.State.Class
 import Control.Monad.ST
 import Control.Monad.Trans.Class
 import Data.Type.Equality
+import Key
 import Prelude hiding (id,(.))
 import Prompt.Class
-import Ref.Key
 
 -- Thoughts: if we always used prompts in ascending order, which I intend to, in practice, then we could use a
 -- type aligned fingertree, rather than Rev Cat in DC, giving slower appends, but giving log
@@ -38,7 +38,7 @@ import Ref.Key
 -- An even fancier version would do something like the Log machinery, but type aligned. There
 -- we could delete knowably unnecessary prompts retroactively.
 
-type P m = Key (KeyState m) -- prompts
+type P m = Key m -- prompts
 type KC m = Rev Cat (Kleisli (CC m))
 type DC m = Rev Cat (Del m)
 
@@ -101,18 +101,15 @@ instance PrimMonad m => PrimMonad (CC m) where
   primitive f = lift (primitive f)
   {-# inlineable primitive #-}
 
-instance MonadKey m => MonadKey (CC m) where
-  type KeyState (CC m) = KeyState m
-
 instance MonadTrans CC where
   lift = CC id id
   {-# inlineable lift #-}
 
-instance MonadKey m => MonadCont (CC m) where
+instance PrimMonad m => MonadCont (CC m) where
   callCC = callcc
   {-# inline callCC #-}
 
-instance MonadKey m => MonadPrompt (CC m) where
+instance PrimMonad m => MonadPrompt (CC m) where
   type Prompt (CC m) = P m
   type Sub (CC m) = SC m
 
@@ -159,7 +156,7 @@ data Split m w a c where
   Split :: DC m w c -> KC m b w -> DC m a b -> Split m w a c
   Unsplit :: Split m w a b
 
-split :: forall m w a b. Key (KeyState m) w -> DC m a b -> Split m w a b
+split :: forall m w a b. Key m w -> DC m a b -> Split m w a b
 split p = go where
   go :: DC m a' b -> Split m w a' b
   go q = case unsnoc q of

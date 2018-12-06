@@ -38,11 +38,11 @@ import Logic.Class
 import Par.Class
 import Prelude hiding (fail)
 import Ref.Base
-import Ref.Key
 import Unaligned.Base
 
 type Task m = ParEnv m -> m (ParEnv m)
 
+-- TODO: can we just store this in a backtracked reference?
 newtype ParEnv m = ParEnv { _todo :: Q (Task m) }
 
 instance Default (ParEnv m) where
@@ -50,10 +50,10 @@ instance Default (ParEnv m) where
 
 makeClassy ''ParEnv
 
-statePar :: (Alternative m, MonadKey m, MonadState s m, HasRefEnv s (KeyState m)) => Par m a -> StateT (ParEnv m) m a
+statePar :: (Alternative m, MonadRef m) => Par m a -> StateT (ParEnv m) m a
 statePar (Par m) = StateT $ \s -> do
   r <- newRef Nothing
-  s' <- m (\ a s' -> s' <$ (ref r ?= a)) s
+  s' <- m (\ a s' -> s' <$ (writeRef r $ Just a)) s
   readRef r >>= \case
     Nothing -> empty
     Just a -> pure (a, s')
@@ -81,10 +81,6 @@ instance MonadTrans Par where
 instance MonadIO m => MonadIO (Par m) where
   liftIO = lift . liftIO
 
-instance MonadKey m => MonadKey (Par m) where
-  type KeyState (Par m) = KeyState m
-  newKey = lift newKey
-
 -- dangerous
 instance PrimMonad m => PrimMonad (Par m) where
   type PrimState (Par m) = PrimState m
@@ -102,10 +98,8 @@ instance MonadReader e m => MonadReader e (Par m) where
     local f $ m (\a -> local (const r) . k a) s
 
 instance
-  ( MonadState s m
-  , HasRefEnv s (KeyState m)
+  ( MonadRef m
   , MonadLogic m
-  , MonadKey m
   ) => MonadLogic (Par m) where
   msplit m = fmap parState <$> parState (msplit (statePar m))
 

@@ -24,7 +24,6 @@ import Data.Bifunctor
 import Data.Bifoldable
 import Data.Bitraversable
 import Data.Functor.Identity
-import Ref.Key
 import Logic.Class
 import Unaligned.Base
 
@@ -107,9 +106,6 @@ instance Monad m => MonadLogic (LogicT m) where
 instance PrimMonad m => PrimMonad (LogicT m) where
   type PrimState (LogicT m) = PrimState m
   primitive f = lift $ primitive f
-
-instance MonadKey m => MonadKey (LogicT m) where
-  type KeyState (LogicT m) = KeyState m
 
 observe :: Logic a -> a
 observe = runIdentity . observeT

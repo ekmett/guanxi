@@ -26,13 +26,11 @@ module Ref.Log
   ) where
 
 import Control.Monad (join)
-import Control.Monad.State.Class
 import Control.Lens
 import Data.FingerTree as F
 import Data.Foldable as Foldable
 import Prelude hiding (log)
 import Ref.Base
-import Ref.Key
 
 -- version # since, ref count, monoidal summary
 data LogEntry a = LogEntry
@@ -90,45 +88,41 @@ data Log u a where
   Log :: Semigroup a => { getLog :: Ref u (LogState a) } -> Log u a
 #endif
 
-log :: HasRefEnv s u => Log u a -> Lens' s (LogState a)
-log = ref . getLog
+-- log :: HasRefEnv s u => Log u a -> Lens' s (LogState a)
+-- log = ref . getLog
 
-newLog
-  :: (MonadState s m, MonadKey m, HasRefEnv s (KeyState m), Semigroup a)
-  => Bool
-  -> m (Log (KeyState m) a)
+newLog :: (MonadRef m, Semigroup a) => Bool -> m (Log m a)
 newLog = fmap Log . newRef . newLogState
 
--- | Get a snapshot of the # of cursors outstanding
-cursors :: (MonadState s m, HasRefEnv s u) => Log u a -> m Int
-cursors l@Log{} = uses (log l) $ \(LogState t _ c _) -> refCount (measure t) + c 
+readLog :: MonadRef m => Log m a -> m (LogState a)
+readLog = readRef . getLog
 
-record :: (MonadState s m, HasRefEnv s u) => Log u a -> a -> m ()
+-- | Get a snapshot of the # of cursors outstanding
+cursors :: MonadRef m => Log m a -> m Int
+cursors l@Log{} = readLog l <&> \(LogState t _ c _) -> refCount (measure t) + c 
+
+record :: MonadRef m => Log m a -> a -> m ()
 record (Log r) a = modifyRef r (recordState a)
 
-data Cursor u a = Cursor {-# unpack #-} !(Log u a) {-# unpack #-} !(Ref u Int)
+data Cursor m a = Cursor {-# unpack #-} !(Log m a) {-# unpack #-} !(Ref m Int)
 
 -- data Cursor a = Cursor !(Var a) {-# UNPACK #-} !Int
 
 -- | Subscribe to _new_ updates, but we won't get the history.
-newCursor, oldCursor
-  :: (MonadState s m, HasRefEnv s (KeyState m), MonadKey m)
-  => Log (KeyState m) a
-  -> m (Cursor (KeyState m) a)
-newCursor l@Log{} = Cursor l <$> do
-  i <- log l %%= watchNew 
+newCursor, oldCursor :: MonadRef m => Log m a -> m (Cursor m a)
+newCursor l@(Log r) = Cursor l <$> do
+  i <- updateRef r watchNew 
   newRef i
 
-oldCursor l@Log{} = Cursor l <$> do
-  i <- log l %%= watchOld
+oldCursor l@(Log r) = Cursor l <$> do
+  i <- updateRef r watchOld
   newRef i
 
 -- invalidates this cursor
-deleteCursor :: (MonadState s m, HasRefEnv s u) => Cursor u a -> m ()
-deleteCursor (Cursor rl@Log{} ri) = do
+deleteCursor :: MonadRef m => Cursor m a -> m ()
+deleteCursor (Cursor (Log rlr) ri) = do
   i <- readRef ri
-  unsafeDeleteRef ri -- we're done, invalidate this cursor
-  log rl %= \ls@(LogState t v c m) -> if
+  modifyRef rlr $ \ls@(LogState t v c m) -> if
     | i >= v -> LogState t v (c-1) m
     | otherwise -> case F.split (\(LogEntry j _ _) -> j >= i) t of
       (l,r) -> case viewr l of
@@ -143,10 +137,10 @@ deleteCursor (Cursor rl@Log{} ri) = do
 
 -- 0 m 1 m {2 mempty} 3 m 4 m {5 mempty} {6 mempty} {7 mempty} 8 m {9 mempty} 10 Maybe
 -- {}'d things are implied
-advance :: forall s m u a. (MonadState s m, HasRefEnv s u) => Cursor u a -> m (Maybe a)
-advance (Cursor rl@Log{} ri) = do
+advance :: forall m a. MonadRef m => Cursor m a -> m (Maybe a)
+advance (Cursor (Log rlr) ri) = do
   i <- readRef ri 
-  join $ log rl %%= \ls@(LogState t v c (m :: Maybe a)) -> if
+  join $ updateRef rlr $ \ls@(LogState t v c (m :: Maybe a)) -> if
     | i >= v -> case m of
       Nothing -> (pure Nothing, ls)
       Just a

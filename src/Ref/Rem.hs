@@ -10,47 +10,45 @@
 -- Portability: non-portable
 --
 -- Rem's interleaved algorithm for union-find.
-module Ref.Rem
-  ( Rem
-  , newRem
-  , union
-  , find
-  , eq
-  ) where
+module Ref.Rem where
 
+{-
+import Back.Ref
 import Control.Lens
 import Control.Applicative (liftA2)
 import Control.Monad (unless)
+import Control.Monad.Primitive
 import Control.Monad.State.Class
 import Data.Function
-import Ref.Base
-import Ref.Key
 
 -- | (flipped) Rem's invariant: all pointers go to lower ids
 -- This causes us to favor old IDs, that way when we allocate
 -- fresh IDs we aren't constantly 'pulling' the pool of
 -- equivalences into the new IDs.
-newtype Rem u = Rem { runRem :: Ref u (Rem u) } deriving (Eq,Ord)
 
-instance Reference (Rem u) u (Rem u) where
+-- this now requires us to be able to supply ids as rem ids aren't ordered
+
+newtype Rem m = Rem { runRem :: Ref m (Rem m) } deriving Eq
+
+instance Reference m (Rem m) (Rem m) where
   reference = runRem
 
-newRem :: (MonadKey m , MonadState s m , HasRefEnv s (KeyState m)) => m (Rem (KeyState m))
+newRem :: PrimState m => m (Rem (PrimState m))
 newRem = Rem <$> newSelfRef Rem
 
-eq :: (MonadState s m, HasRefEnv s u) => Rem u -> Rem u -> m Bool
+eq :: MonadRef m => Rem m -> Rem m -> m Bool
 eq = liftA2 (==) `on` find -- this could be smarter
 
 -- | find with path splitting
-find :: (MonadState s m, HasRefEnv s u) => Rem u -> m (Rem u)
+find :: MonadRef m => Rem m -> m (Rem m)
 find x = do
-  n <- use (ref x)
+  n <- readRef x
   if n == x then pure x else do -- path splitting
-    ref x <~ use (ref n)
+    readRef n >>= writeRef x
     find n
 
 -- | RemSP(x,y)
-union :: (MonadState s m, HasRefEnv s u) => Rem u -> Rem u -> m ()
+union :: MonadRef m => Rem m -> Rem m -> m ()
 union x y = do
   px <- readRef x
   py <- readRef y
@@ -62,3 +60,4 @@ union x y = do
     GT -> do
       ref x .= py
       unless (x == px) $ union px y
+-}

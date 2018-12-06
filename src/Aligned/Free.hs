@@ -18,7 +18,6 @@ import Aligned.Base
 import Control.Applicative
 import Control.Arrow (Kleisli(..))
 import Control.Monad (ap, liftM, guard, join)
-import Control.Monad.State.Class
 import Control.Category
 import Prelude hiding ((.),id)
 import Ref.Base
@@ -67,7 +66,7 @@ instance Applicative (Free f) where
 instance Monad (Free f) where
   F m r >>= f = F m (cons (Kleisli f) r)
 
-unifyMeta :: (Alternative m, MonadState s m, HasRefEnv s u, Reference v u (Maybe (Free f v)), Unified f, Eq v) => v -> Free f v -> m (Free f v)
+unifyMeta :: (Alternative m, MonadRef m, Reference m (Maybe (Free f v)) v, Unified f, Eq v) => v -> Free f v -> m (Free f v)
 unifyMeta a x = readRef a >>= \case
   Nothing -> do
     x' <- zonk x
@@ -77,7 +76,7 @@ unifyMeta a x = readRef a >>= \case
     y' <- unify x y
     y' <$ writeRef a (Just y')
 
-unify :: (Alternative m, MonadState s m, HasRefEnv s u, Reference v u (Maybe (Free f v)), Unified f, Eq v) => Free f v -> Free f v -> m (Free f v)
+unify :: (Alternative m, MonadRef m, Reference m (Maybe (Free f v)) v, Unified f, Eq v) => Free f v -> Free f v -> m (Free f v)
 unify l r = go l (view l) (view r) where
   go t (Pure v) (Pure u) | v == u = return t
   go _ (Pure a) y = unifyMeta a (unview y) -- TODO: union by rank in the (Pure a) (Pure b) case, requires ranked references, though
@@ -86,7 +85,7 @@ unify l r = go l (view l) (view r) where
     free <$> merge unify xs ys
 
 -- | zonk/walk-flatten
-zonk :: (MonadState s m, HasRefEnv s u, Reference v u (Maybe (Free f v)), Traversable f) => Free f v -> m (Free f v)
+zonk :: (MonadRef m, Reference m (Maybe (Free f v)) v, Traversable f) => Free f v -> m (Free f v)
 zonk = fmap join . traverse go where
   go v = readRef v >>= \case
     Nothing -> pure $ pure v
