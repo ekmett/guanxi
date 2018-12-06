@@ -16,7 +16,6 @@ module Logic.Reflection
   , observeT, observeManyT, observeAllT
   ) where
 
-import Back.Class
 import Control.Monad
 import Control.Monad.Primitive
 import Control.Monad.Trans
@@ -111,10 +110,6 @@ instance PrimMonad m => PrimMonad (LogicT m) where
 
 instance MonadKey m => MonadKey (LogicT m) where
   type KeyState (LogicT m) = KeyState m
-
-instance PrimMonad m => MonadBack (LogicT m) where
-  backtrackWith mu = unview $ pure $ () :&: (stToPrim mu *> empty)
-  {-# inline backtrackWith #-}
 
 observe :: Logic a -> a
 observe = runIdentity . observeT

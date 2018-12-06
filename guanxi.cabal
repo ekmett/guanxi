@@ -53,7 +53,6 @@ library
     Aligned.Base
     Aligned.Free
     Aligned.Freer
-    Back.Class
     Back.Ref
     FD.Monad
     FD.Var

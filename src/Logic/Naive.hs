@@ -10,7 +10,6 @@
 
 module Logic.Naive where
 
-import Back.Class
 import Control.Applicative
 import Control.Monad
 import Control.Monad.Primitive
@@ -69,6 +68,3 @@ instance PrimMonad m => PrimMonad (LogicT m) where
 
 instance MonadKey m => MonadKey (LogicT m) where
   type KeyState (LogicT m) = KeyState m
-
-instance PrimMonad m => MonadBack (LogicT m) where
-  backtrackWith mu = LogicT $ pure $ () :&: (stToPrim mu *> empty)
