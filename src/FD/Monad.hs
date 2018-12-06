@@ -42,6 +42,7 @@ newtype FD s a = FD { runFD :: Cont.Par (FD' s) a } deriving
 
 instance MonadLogic (FD s) where
   msplit (FD m) = FD $ fmap FD <$> msplit m
+  interleave = (<|>)
 
 unFD :: FD s a -> LogicT (ST s) a
 unFD m = evalStateT (evalStateT (statePar (runFD m)) def) def
@@ -57,10 +58,10 @@ run m = runST $ observeAllT $ unFD m
 
 -- |
 -- >>> run example
--- [(1,2),(1,3),(2,3)]
+-- [(1,2),(1,3),(1,4),(2,3),(2,4),(3,4)]
 example :: FD s (Integer, Integer)
 example = do
-  x <- newFDVar [1..3]
-  y <- newFDVar [1..3]
+  x <- newFDVar [1..4]
+  y <- newFDVar [1..4]
   lt x y
   (,) <$> val x <*> val y
