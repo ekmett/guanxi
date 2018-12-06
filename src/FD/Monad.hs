@@ -32,6 +32,8 @@ import Ref.Signal
 
 type FD' s = StateT (SignalEnv (FD s)) (Reflection.LogicT (ST s))
 
+type M = FD
+
 newtype FD s a = FD { runFD :: Cont.Par (FD' s) a } deriving
   ( Functor, Applicative, Alternative
   , Monad, MonadPlus
@@ -43,17 +45,17 @@ newtype FD s a = FD { runFD :: Cont.Par (FD' s) a } deriving
 instance MonadLogic (FD s) where
   msplit (FD m) = FD $ fmap FD <$> msplit m
 
-eval :: FD s a -> LogicT (ST s) a
-eval m = evalStateT (evalStateT (statePar (runFD m)) def) def
+unFD :: FD s a -> LogicT (ST s) a
+unFD m = evalStateT (evalStateT (statePar (runFD m)) def) def
 
 run1 :: (forall s. FD s a) -> a
-run1 m = runST $ observeT $ eval m
+run1 m = runST $ observeT $ unFD m
 
 runN :: Int -> (forall s. FD s a) -> [a]
-runN n m = runST $ observeManyT n $ eval m
+runN n m = runST $ observeManyT n $ unFD m
 
 run :: (forall s. FD s a) -> [a]
-run m = runST $ observeAllT $ eval m
+run m = runST $ observeAllT $ unFD m
 
 -- |
 -- >>> run example

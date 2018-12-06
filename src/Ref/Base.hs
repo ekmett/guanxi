@@ -7,6 +7,7 @@
 {-# language RankNTypes #-}
 {-# language GADTs #-}
 {-# language ViewPatterns #-}
+{-# language LambdaCase #-}
 
 -- |
 -- Copyright :  (c) Edward Kmett 2018
@@ -21,6 +22,7 @@ module Ref.Base
   , Reference(..)
   , ref, newRef, newSelfRef, readRef, writeRef, modifyRef, unsafeDeleteRef
   , refId
+  , memo
   ) where
 
 import Control.Monad (guard)
@@ -99,7 +101,20 @@ writeRef r a = ref r .= a
 modifyRef :: (MonadState s m, HasRefEnv s u, Reference t u a) => t -> (a -> a) -> m ()
 modifyRef r f = ref r %= f
 
--- delete a reference that we can prove somehow is not referenced anywhere
+-- | Delete a reference that we can prove somehow is not referenced anywhere
 -- this will reset it to its 'default' value that was given when the ref was created
 unsafeDeleteRef :: (MonadState s m, HasRefEnv s u, Reference t u a) => t -> m ()
 unsafeDeleteRef (reference -> Ref _ _ i) = refs.at i .= Nothing
+
+-- | Based on <http://www-ps.informatik.uni-kiel.de/~sebf/data/pub/icfp09.pdf>
+-- section 5.3.2
+
+memo :: (MonadState s m, HasRefEnv s (KeyState m), MonadKey m) => m a -> m (m a)
+memo ma = do
+  r <- newRef Nothing -- Either (m a) a
+  pure $ readRef r >>= \case
+    Nothing -> do
+      a <- ma
+      a <$ writeRef r (Just a)
+    Just a -> pure a
+
