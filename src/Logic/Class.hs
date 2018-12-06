@@ -30,8 +30,8 @@ class MonadPlus m => MonadLogic m where
   -- msplit empty ≡ pure Empty
   -- msplit (pure a <|> m) == pure (a :&: m)
   -- @
-  msplit :: m a -> m (View a (m a)) 
-  
+  msplit :: m a -> m (View a (m a))
+
   -- | fair disjunction
   interleave :: m a -> m a -> m a
   interleave m1 m2 = msplit m1 >>= \case
@@ -54,7 +54,7 @@ class MonadPlus m => MonadLogic m where
   -- @
   ifte :: m a -> (a -> m b) -> m b -> m b
   ifte t th el = msplit t >>= \case
-    Empty -> el 
+    Empty -> el
     a :&: m -> th a <|> (m >>= th)
 
   -- | pruning
@@ -152,4 +152,3 @@ reflect (a :&: m) = pure a <|> m
 
 lnot :: MonadLogic m => m a -> m ()
 lnot m = ifte (once m) (const mzero) (return ())
-

@@ -16,6 +16,7 @@ module Logic.Reflection
   , observeT, observeManyT, observeAllT
   ) where
 
+import Back.Class
 import Control.Monad
 import Control.Monad.Primitive
 import Control.Monad.Trans
@@ -63,7 +64,7 @@ instance Traversable m => Traversable (LogicT m) where
   traverse f = fmap LogicT . traverse (traverse (bitraverse f (traverse f))) . runLogicT
 
 single :: Monad m => a -> m (L m a)
-single a = return (a :&: empty)
+single a = pure (a :&: empty)
 
 unview :: m (L m a) -> LogicT m a
 unview = LogicT . singleton
@@ -96,7 +97,7 @@ instance Monad m => MonadPlus (LogicT m) where
   mplus = (<|>)
 
 instance MonadTrans LogicT where
-  lift m = unview (m >>= single)
+  lift m = unview $ m >>= single
 
 instance MonadIO m => MonadIO (LogicT m) where
   liftIO = lift . liftIO
@@ -106,10 +107,14 @@ instance Monad m => MonadLogic (LogicT m) where
 
 instance PrimMonad m => PrimMonad (LogicT m) where
   type PrimState (LogicT m) = PrimState m
-  primitive f = lift (primitive f)
+  primitive f = lift $ primitive f
 
 instance MonadKey m => MonadKey (LogicT m) where
   type KeyState (LogicT m) = KeyState m
+
+instance PrimMonad m => MonadBack (LogicT m) where
+  backtrackWith mu = unview $ pure $ () :&: (stToPrim mu *> empty)
+  {-# inline backtrackWith #-}
 
 observe :: Logic a -> a
 observe = runIdentity . observeT
