@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <vector>
 #include <cstdint>
+
 #ifdef TEST
 #include <iostream>
 #endif
@@ -26,13 +27,14 @@ typedef std::int32_t link;
 struct cell {
   std::int32_t parity:1, column:31;
   link u,d;
-  cell (std::int32_t parity, std::int32_t column, link u, link d)
+  cell(std::int32_t parity, std::int32_t column, link u, link d)
   : parity(parity), column(column), u(u), d(d) {}
 };
 
 struct column {
   link p,n;
-  column (link p, link n) : p(p), n(n) {}
+  column(link p, link n)
+  : p(p), n(n) {}
 };
 
 struct torus {
@@ -66,6 +68,9 @@ struct torus {
     for (int i=0;i<columns;++i)
       links.emplace_back(pred_mod(i), succ_mod(i));
 
+    for (int i=columns;i<total_columns;++i)
+      links.emplace_back(i,i);
+
     cells.emplace_back(1,-1,-1,-1); // sentinel between the columns and rows
     cells.emplace_back(0,-1,-1,-1); // sentinel after all of the rows
   }
@@ -95,18 +100,18 @@ struct torus {
   bool mark(int column) noexcept {
     if (cells[column].parity) return true;
     cells[column].parity = 1;
-    auto [p,n] = links[column];
-    links[n].p = p;
-    links[p].n = n;
+    auto &cell = links[column];
+    links[cell.n].p = cell.p;
+    links[cell.p].n = cell.n;
     return false;
     // 
   } // mark a column used, return true if already used
 
   void release(int column) noexcept {
     cells[column].parity = 0;
-    auto [p,n] = links[column];
-    links[p].n = column;
-    links[n].p = column;
+    auto &cell = links[column];
+    links[cell.p].n = column;
+    links[cell.n].p = column;
   } // unmark a used column
 
   // unlink a single cell and mark the column it is in
@@ -135,7 +140,7 @@ struct torus {
     if (parity) {
       for (;cells[i].parity;--i)
         if (unlink(i)) {
-          while (i<cell) relink(++i);
+          while (i++<cell) relink(i);
           return 0;
         }
       row_id = i+1;
@@ -147,7 +152,7 @@ struct torus {
     } else {
       for (;!cells[i].parity;--i)
         if (unlink(i)) { 
-          while (i<cell) relink(++i);
+          while (i++<cell) relink(i);
           return 0;
         }
       row_id = i+1;
@@ -179,7 +184,7 @@ struct torus {
     std::vector<int> by_count;
     
     for (int i=0;i<columns;++i) 
-      by_count.push_back(i);
+      by_count.emplace_back(i);
     
     std::sort(by_count.begin(),by_count.end(), [&](int i, int j) noexcept {
       return counts[i] <= counts[j];
@@ -246,14 +251,13 @@ template <typename OStream> OStream & operator << (OStream & os, const torus & t
   }
 }
 
-
-
 int main(int argc, char ** argv) {
   auto x = torus(4,2);
   x.add_row({0,1,4});
   x.add_row({2,3,5});
   x.add_row({1,2});
   x.add_row({0});
+  x.add_row({3});
   x.add_row({1,4});
   x.add_row({2,5});
   x.add_row({3});
@@ -271,4 +275,4 @@ int main(int argc, char ** argv) {
     std::cout << '\n';
   });
 }
-#endif
+#endif  
