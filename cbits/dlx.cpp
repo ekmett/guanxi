@@ -1,10 +1,8 @@
 #include <algorithm>
 #include <vector>
 #include <cstdint>
-
-#ifdef TEST
+#include <map>
 #include <iostream>
-#endif
 
 // compute exact covers using dancing links
 
@@ -47,17 +45,17 @@ struct torus {
   constexpr int pred_mod(int i) const noexcept {
     return (i+columns-1)%columns;
   }
-  
+
   constexpr int succ_mod(int i) const noexcept {
     return (i+1)%columns;
   }
 
-  torus(int columns, int optional_columns) noexcept 
+  torus(int columns, int optional_columns) noexcept
   : columns(columns)
   , total_columns(columns + optional_columns)
   , starting_column(0)
   , cells()
-  , counts(columns,0) 
+  , counts(columns,0)
   , links() {
     cells.reserve(total_columns+2);
     links.reserve(columns);
@@ -75,7 +73,24 @@ struct torus {
     cells.emplace_back(0,-1,-1,-1); // sentinel after all of the rows
   }
 
+  template <typename T>
+  int add_row(T values) {
+    auto base = cells.size()-1;
+    auto parity = cells[base].parity;
+    cells.pop_back(); // drop the current terminating sentinel
+    int i = 0;
+    for (auto j : values) {
+      auto u = cells[j].u;
+      cells.emplace_back(parity,j,u,j);
+      cells[u].d = cells[j].u = base + i++;
+      inc(j);
+    }
+    cells.emplace_back(!parity,-1,-1,-1); // restore the sentinel after all of the rows
+    return base;
+  }
+
   int add_row(std::initializer_list<int> values) noexcept {
+
     auto base = cells.size()-1;
     auto parity = cells[base].parity;
     cells.pop_back(); // drop the current terminating sentinel
@@ -92,8 +107,8 @@ struct torus {
     return base;
   }
 
-  void inc(int column) noexcept { 
-    ++counts[column]; 
+  void inc(int column) noexcept {
+    ++counts[column];
   }
 
   // TODO: make pithy
@@ -104,7 +119,7 @@ struct torus {
     links[cell.n].p = cell.p;
     links[cell.p].n = cell.n;
     return false;
-    // 
+    //
   } // mark a column used, return true if already used
 
   void release(int column) noexcept {
@@ -151,7 +166,7 @@ struct torus {
         }
     } else {
       for (;!cells[i].parity;--i)
-        if (unlink(i)) { 
+        if (unlink(i)) {
           while (i++<cell) relink(i);
           return 0;
         }
@@ -160,7 +175,7 @@ struct torus {
         if (unlink(i)) {
           while (!cells[--i].parity) relink(i);
           return 0;
-        }      
+        }
     }
     return row_id; // ok
   }
@@ -182,10 +197,10 @@ struct torus {
   // blech
   void sort_links() noexcept {
     std::vector<int> by_count;
-    
-    for (int i=0;i<columns;++i) 
+
+    for (int i=0;i<columns;++i)
       by_count.emplace_back(i);
-    
+
     std::sort(by_count.begin(),by_count.end(), [&](int i, int j) noexcept {
       return counts[i] <= counts[j];
     });
@@ -198,7 +213,6 @@ struct torus {
     starting_column = by_count[0];
   }
 
-#ifdef TEST
   template <typename OStream> OStream & show_row(OStream & os, int row) noexcept {
     bool first = true;
     for_row(row, [&](int i) noexcept {
@@ -208,7 +222,6 @@ struct torus {
     });
     return os << '}';
   }
-#endif
 };
 
 struct recursive_solver {
@@ -217,12 +230,12 @@ struct recursive_solver {
 
   recursive_solver(torus & t) : problem(t), result() {}
 
-  template <typename Fn> 
+  template <typename Fn>
   void solve(Fn f) {
     solve(f,problem.starting_column);
   }
 
-  template <typename Fn> 
+  template <typename Fn>
   void solve(Fn f, int col) {
     if (problem.cells[col].parity) {
       f(result);
@@ -242,30 +255,70 @@ struct recursive_solver {
   }
 };
 
-#ifdef TEST
 template <typename OStream> OStream & operator << (OStream & os, const torus & t) {
   os << t.columns << '|' << t.total_columns << " cells: " << t.cells.size() << '\n';
 
   for (auto c : t.cells) {
     os << '{' << c.parity << ',' << c.column << ',' << c.u << ',' << c.d << "}\n";
   }
+  return os;
 }
 
-int main(int argc, char ** argv) {
+void queens(int n) {
+  std::cout << n << " queens\n";
+  int nn = n+n-2;
+//  auto organ = [=](int i) { return (i&1 ? n-1-i : n+i) >> 1; };
+  auto organ = [=](int i) { return i; };
+
+  auto row = [=](int i) { return organ(i); };
+  auto col = [=](int i) { return n + organ(i); };
+  auto a = [=](int i) { return 2*n + i; };
+  auto b = [=](int i) { return 2*n + nn + i; };
+  auto x = torus(2*n,2*nn);
+  std::vector<int> option;
+  std::map<int,std::tuple<int,int>> rows;
+  for(int j=0;j<n;++j) {
+    option.resize(0);
+    option.emplace_back(row(j));
+    for (int k=0;k<n;++k) {
+      option.resize(1);
+      option.emplace_back(col(k));
+      int t = j+k;
+      if (t && t < nn) option.emplace_back(a(t));
+      t = n-1-j+k;
+      if (t && t < nn) option.emplace_back(b(t));
+      rows.emplace(x.add_row(option),std::tuple(j,k)); // interpret the row
+    }
+  }
+  x.sort_links();
+  auto y = recursive_solver(x);
+  y.solve([&](std::vector<int> & is) {
+    bool first = true;
+    for (auto i : is) {
+      auto result = rows.find(i);
+      if (result != rows.end()) {
+        auto & [r,c] = rows.find(i)->second;
+        if (!first) std::cout << ' ';
+        std::cout << r << ',' << c;
+        first = false;
+      } else {
+        std::cout << "!!!";
+      }
+    }
+    std::cout << '\n';
+  });
+}
+
+void simple() {
   auto x = torus(4,2);
-  x.add_row({0,1,4});
-  x.add_row({2,3,5});
-  x.add_row({1,2});
-  x.add_row({0});
+  x.add_row({0,1,3,4,5});
+  x.add_row({2});
   x.add_row({3});
-  x.add_row({1,4});
-  x.add_row({2,5});
-  x.add_row({3});
-  x.add_row({0,1,2,5});
+  x.add_row({0,1});
   x.sort_links(); // lame
   // std::cout << x;
   auto y = recursive_solver(x);
-  y.solve([&](std::vector<int> & is) { 
+  y.solve([&](std::vector<int> & is) {
     bool first = true;
     for (auto i : is) {
       if (!first) std::cout << ' ';
@@ -275,4 +328,8 @@ int main(int argc, char ** argv) {
     std::cout << '\n';
   });
 }
-#endif  
+
+int main(int argc, char ** argv) {
+  queens(8);
+  // simple();
+}
