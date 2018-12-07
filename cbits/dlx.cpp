@@ -1,9 +1,11 @@
 #include <algorithm>
 #include <vector>
 #include <cstdint>
+#ifdef TEST
 #include <iostream>
+#endif
 
-// compute exact covers
+// compute exact covers using dancing links
 
 /*              01234567890
                      CFHIABDEGJ
@@ -24,7 +26,6 @@ typedef std::int32_t link;
 struct cell {
   std::int32_t parity:1, column:31;
   link u,d;
-
   cell (std::int32_t parity, std::int32_t column, link u, link d)
   : parity(parity), column(column), u(u), d(d) {}
 };
@@ -192,6 +193,7 @@ struct torus {
     starting_column = by_count[0];
   }
 
+#ifdef TEST
   template <typename OStream> OStream & show_row(OStream & os, int row) noexcept {
     bool first = true;
     for_row(row, [&](int i) noexcept {
@@ -201,16 +203,8 @@ struct torus {
     });
     return os << '}';
   }
+#endif
 };
-
-
-template <typename OStream> OStream & operator << (OStream & os, const torus & t) {
-  os << t.columns << '|' << t.total_columns << " cells: " << t.cells.size() << '\n';
-
-  for (auto c : t.cells) {
-    os << '{' << c.parity << ',' << c.column << ',' << c.u << ',' << c.d << "}\n";
-  }
-}
 
 struct recursive_solver {
   torus & problem;
@@ -225,14 +219,12 @@ struct recursive_solver {
 
   template <typename Fn> 
   void solve(Fn f, int col) {
-   // std::cout << "solve(" << col << ")\n";
     if (problem.cells[col].parity) {
       f(result);
       return;
     }
     int candidate = problem.cells[col].d;
     while (candidate != col) {
-     // std::cout << "candidate = " << candidate << "\n";
       int row = problem.unlink_row_containing(candidate);
       if (row) {
         result.emplace_back(row);
@@ -245,16 +237,27 @@ struct recursive_solver {
   }
 };
 
+#ifdef TEST
+template <typename OStream> OStream & operator << (OStream & os, const torus & t) {
+  os << t.columns << '|' << t.total_columns << " cells: " << t.cells.size() << '\n';
+
+  for (auto c : t.cells) {
+    os << '{' << c.parity << ',' << c.column << ',' << c.u << ',' << c.d << "}\n";
+  }
+}
+
+
+
 int main(int argc, char ** argv) {
-  auto x = torus(4,0);
-  x.add_row({0,1});
-  x.add_row({2,3});
+  auto x = torus(4,2);
+  x.add_row({0,1,4});
+  x.add_row({2,3,5});
   x.add_row({1,2});
   x.add_row({0});
-  x.add_row({1});
-  x.add_row({2});
+  x.add_row({1,4});
+  x.add_row({2,5});
   x.add_row({3});
-  x.add_row({0,1,2,3});
+  x.add_row({0,1,2,5});
   x.sort_links(); // lame
   // std::cout << x;
   auto y = recursive_solver(x);
@@ -268,3 +271,4 @@ int main(int argc, char ** argv) {
     std::cout << '\n';
   });
 }
+#endif
