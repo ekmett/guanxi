@@ -287,7 +287,7 @@ void queens(int n) {
       if (t && t < nn) option.emplace_back(a(t));
       t = n-1-j+k;
       if (t && t < nn) option.emplace_back(b(t));
-      rows.emplace(x.add_row(option),std::tuple(j,k)); // interpret the row
+      rows.emplace(x.add_row(option),std::tuple<int,int>(j,k)); // interpret the row
     }
   }
   x.sort_links();
@@ -297,9 +297,9 @@ void queens(int n) {
     for (auto i : is) {
       auto result = rows.find(i);
       if (result != rows.end()) {
-        auto & [r,c] = rows.find(i)->second;
+        auto & p = rows.find(i)->second;
         if (!first) std::cout << ' ';
-        std::cout << r << ',' << c;
+        std::cout << std::get<0>(p) << ',' << std::get<1>(p);
         first = false;
       } else {
         std::cout << "!!!";
