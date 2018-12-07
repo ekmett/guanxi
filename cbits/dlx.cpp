@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <iostream>
 
-// compute covers
+// compute exact covers
 
 /*              01234567890
                      CFHIABDEGJ
@@ -238,8 +238,8 @@ struct recursive_solver {
         result.emplace_back(row);
         solve(f, problem.links[col].n);
         result.pop_back();
+        problem.relink_row(row);
       }
-      problem.relink_row(row);
       candidate = problem.cells[candidate].d;
     }
   }
