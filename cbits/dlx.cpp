@@ -7,16 +7,6 @@
 
 // compute exact covers using dancing links
 
-/*
-                     2212212112
-  ABCDEFGHIJ|KLM     ABCDEFGHIJ0
-  1100001001 010 +   AB    G  J
-  0100100010 000 -    B  E
-  0011010100 000 +     CD F H
-  0000100010 100 +       E   I
-  1001001001 000 -   A  D  G  J0
-*/
-
 using namespace std;
 
 typedef std::uint32_t link;
@@ -68,7 +58,7 @@ struct torus {
     // mark the cell<->row sentinel, so we can identify rows
     cells[total_columns].parity = 1;
 
-		// link the primary columns in a cycle
+    // link the primary columns in a cycle
     for (uint32_t i=0;i<columns;++i)
       links.emplace_back(pred_mod(i), succ_mod(i));
 
@@ -205,7 +195,7 @@ struct torus {
   }
 
   // blech
-  void sort_links() noexcept {
+  void sort_columns() noexcept {
     std::vector<uint32_t> by_count;
 
     for (uint32_t i=0;i<columns;++i)
@@ -244,7 +234,9 @@ struct recursive_solver {
 
   template <typename Fn>
   void solve(Fn f) {
-    solve(f,problem.starting_column);
+    // check to make sure we have _any_ mandatory columns first
+    if (problem.columns) solve(f,problem.starting_column);
+    else f(result); // otherwise the empty solution is a solution
   }
 
   template <typename Fn>
@@ -301,7 +293,7 @@ void queens(uint32_t n) {
       rows.emplace(x.add_row(option),std::tuple<uint8_t,uint8_t>(j,k)); // interpret the row
     }
   }
-  x.sort_links();
+  x.sort_columns();
   auto y = recursive_solver(x);
   y.solve([&](std::vector<uint32_t> & is) {
     bool first = true;
@@ -326,7 +318,7 @@ void simple() {
   x.add_row({2});
   x.add_row({3});
   x.add_row({0,1});
-  x.sort_links(); // lame
+  x.sort_columns(); // lame
   // std::cout << x;
   auto y = recursive_solver(x);
   y.solve([&](std::vector<uint32_t> & is) {
