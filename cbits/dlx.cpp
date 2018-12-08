@@ -212,7 +212,9 @@ struct torus {
       by_count.emplace_back(i);
 
     std::sort(by_count.begin(),by_count.end(), [&](uint32_t i, uint32_t j) noexcept {
-      return counts[i] <= counts[j];
+      assert(i<columns);
+      assert(j<columns);
+      return counts[i] < counts[j];
     });
 
     for (uint32_t i=0;i<columns;++i) {
@@ -275,7 +277,6 @@ template <typename OStream> OStream & operator << (OStream & os, const torus & t
 }
 
 void queens(uint32_t n) {
-  std::cout << n << " queens\n";
   uint32_t nn = n+n-2;
 //  auto organ = [=](int i) { return (i&1 ? n-1-i : n+i) >> 1; };
   auto organ = [=](uint32_t i) { return i; };
@@ -309,7 +310,7 @@ void queens(uint32_t n) {
       if (result != rows.end()) {
         auto & p = rows.find(i)->second;
         if (!first) std::cout << ' ';
-        std::cout << std::get<0>(p) << ',' << std::get<1>(p);
+        std::cout << int(std::get<0>(p)) << ',' << int(std::get<1>(p));
         first = false;
       } else {
         std::cout << "!!!";
@@ -340,5 +341,5 @@ void simple() {
 }
 
 int main(int argc, char ** argv) {
-  queens(7);
+  queens(12);
 }
