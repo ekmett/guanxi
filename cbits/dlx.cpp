@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <map>
 #include <iostream>
+#include <assert.h>
 
 // compute exact covers using dancing links
 
@@ -20,10 +21,11 @@
 
 using namespace std;
 
-typedef std::int32_t link;
+typedef std::uint32_t link;
 
 struct cell {
-  std::int32_t parity:1, column:31;
+  // in the cell header, parity stores whether we've already used this column
+  std::uint32_t parity:1, column:31;
   link u,d;
   cell(std::int32_t parity, std::int32_t column, link u, link d)
   : parity(parity), column(column), u(u), d(d) {}
@@ -36,50 +38,52 @@ struct column {
 };
 
 struct torus {
-  int columns, total_columns;
-  int starting_column;
+  uint32_t columns, total_columns;
+  uint32_t starting_column;
   std::vector<cell> cells;
-  std::vector<int> counts;
+  std::vector<uint32_t> counts;
   std::vector<column> links;
 
-  constexpr int pred_mod(int i) const noexcept {
+  constexpr uint32_t pred_mod(uint32_t i) const noexcept {
     return (i+columns-1)%columns;
   }
 
-  constexpr int succ_mod(int i) const noexcept {
+  constexpr uint32_t succ_mod(uint32_t i) const noexcept {
     return (i+1)%columns;
   }
 
-  torus(int columns, int optional_columns) noexcept
+  torus(uint32_t columns, uint32_t optional_columns) noexcept
   : columns(columns)
   , total_columns(columns + optional_columns)
   , starting_column(0)
   , cells()
   , counts(columns,0)
   , links() {
+    assert(total_columns>0);
     cells.reserve(total_columns+2);
     links.reserve(columns);
 
-    for (int i=0;i<total_columns;++i)
+    for (uint32_t i=0;i<total_columns;++i)
       cells.emplace_back(0,i,i,i);
 
-    for (int i=0;i<columns;++i)
+    for (uint32_t i=0;i<columns;++i)
       links.emplace_back(pred_mod(i), succ_mod(i));
 
-    for (int i=columns;i<total_columns;++i)
+    for (uint32_t i=columns;i<total_columns;++i)
       links.emplace_back(i,i);
 
-    cells.emplace_back(1,-1,-1,-1); // sentinel between the columns and rows
-    cells.emplace_back(0,-1,-1,-1); // sentinel after all of the rows
+    cells.emplace_back(1,0,0,0); // sentinel between the columns and rows
+    cells.emplace_back(0,0,0,0); // sentinel after all of the rows
   }
 
   template <typename T>
-  int add_row(T values) {
+  uint32_t add_row(T values) {
     auto base = cells.size()-1;
     auto parity = cells[base].parity;
     cells.pop_back(); // drop the current terminating sentinel
-    int i = 0;
+    uint32_t i = 0;
     for (auto j : values) {
+      assert(j < total_columns);
       auto u = cells[j].u;
       cells.emplace_back(parity,j,u,j);
       cells[u].d = cells[j].u = base + i++;
@@ -89,13 +93,13 @@ struct torus {
     return base;
   }
 
-  int add_row(std::initializer_list<int> values) noexcept {
-
+  uint32_t add_row(std::initializer_list<uint32_t> values) noexcept {
     auto base = cells.size()-1;
     auto parity = cells[base].parity;
     cells.pop_back(); // drop the current terminating sentinel
-    int i = 0;
+    uint32_t i = 0;
     for (auto j : values) {
+      assert(j < total_columns);
       auto u = cells[j].u;
       cells.emplace_back(parity,j,u,j);
       cells[u].d = cells[j].u = base + i++;
@@ -107,12 +111,14 @@ struct torus {
     return base;
   }
 
-  void inc(int column) noexcept {
+  void inc(uint32_t column) noexcept {
+    assert(column < total_columns);
     ++counts[column];
   }
 
   // TODO: make pithy
-  bool mark(int column) noexcept {
+  bool mark(uint32_t column) noexcept {
+    assert(column < total_columns);
     if (cells[column].parity) return true;
     cells[column].parity = 1;
     auto &cell = links[column];
@@ -122,7 +128,9 @@ struct torus {
     //
   } // mark a column used, return true if already used
 
-  void release(int column) noexcept {
+  void release(uint32_t column) noexcept {
+    assert(column < total_columns);
+    assert(cells[column].parity);
     cells[column].parity = 0;
     auto &cell = links[column];
     links[cell.p].n = column;
@@ -131,7 +139,8 @@ struct torus {
 
   // unlink a single cell and mark the column it is in
   // returns true on conflict and if so, does _not_ remove the link.
-  bool unlink(int i) noexcept {
+  bool unlink(uint32_t i) noexcept {
+    assert(i < cells.size());
     auto & cell = cells[i];
     if (mark(cell.column)) return true;
     cells[cell.u].d = cell.d;
@@ -140,18 +149,20 @@ struct torus {
   }
 
   // must be done in the opposite order of unlink.
-  void relink(int i) noexcept {
+  void relink(uint32_t i) noexcept {
+    assert(i < cells.size());
     auto & cell = cells[i];
     release(cell.column);
     cells[cell.u].d = i;
     cells[cell.d].u = i;
   }
 
-  // returns 0 on conflict
-  int unlink_row_containing(int cell) noexcept {
+  // returns 0 on conflict, row# of the row containing the cell otherwise
+  uint32_t unlink_row_containing(uint32_t cell) noexcept {
+    assert(0<cell&&cell<cells.size());
     auto parity = cells[cell].parity;
-    int i=cell;
-    int row_id;
+    auto i=cell;
+    uint32_t row_id;
     if (parity) {
       for (;cells[i].parity;--i)
         if (unlink(i)) {
@@ -180,32 +191,34 @@ struct torus {
     return row_id; // ok
   }
 
-  template <typename Fn> void for_row(int row, Fn f) {
+  template <typename Fn> void for_row(uint32_t row, Fn f) {
+    assert(row<cells.size()); // valid cell
+    assert(cells[row].parity /= cells[row-1].parity); // is row
     auto parity = cells[row].parity;
     if (parity)
-      for (int i=row;cells[i].parity;++i)
+      for (auto i=row;cells[i].parity;++i)
         f(i);
     else
-      for (int i=row;!cells[i].parity;++i)
+      for (auto i=row;!cells[i].parity;++i)
         f(i);
   }
 
-  void relink_row(int row) noexcept {
-    for_row(row, [&](int c) { relink(c); });
+  void relink_row(uint32_t row) noexcept {
+    for_row(row, [&](uint32_t c) { relink(c); });
   }
 
   // blech
   void sort_links() noexcept {
-    std::vector<int> by_count;
+    std::vector<uint32_t> by_count;
 
-    for (int i=0;i<columns;++i)
+    for (uint32_t i=0;i<columns;++i)
       by_count.emplace_back(i);
 
-    std::sort(by_count.begin(),by_count.end(), [&](int i, int j) noexcept {
+    std::sort(by_count.begin(),by_count.end(), [&](uint32_t i, uint32_t j) noexcept {
       return counts[i] <= counts[j];
     });
 
-    for (int i=0;i<columns;++i) {
+    for (uint32_t i=0;i<columns;++i) {
       auto c = by_count[i];
       links[c].p = by_count[pred_mod(i)];
       links[c].n = by_count[succ_mod(i)];
@@ -213,9 +226,9 @@ struct torus {
     starting_column = by_count[0];
   }
 
-  template <typename OStream> OStream & show_row(OStream & os, int row) noexcept {
+  template <typename OStream> OStream & show_row(OStream & os, uint32_t row) noexcept {
     bool first = true;
-    for_row(row, [&](int i) noexcept {
+    for_row(row, [&](uint32_t i) noexcept {
       os << (first ? '{' : ',');
       first = false;
       os << cells[i].column;
@@ -226,7 +239,7 @@ struct torus {
 
 struct recursive_solver {
   torus & problem;
-  std::vector<int> result; // rows
+  std::vector<uint32_t> result; // rows
 
   recursive_solver(torus & t) : problem(t), result() {}
 
@@ -236,14 +249,14 @@ struct recursive_solver {
   }
 
   template <typename Fn>
-  void solve(Fn f, int col) {
+  void solve(Fn f, uint32_t col) {
     if (problem.cells[col].parity) {
       f(result);
       return;
     }
-    int candidate = problem.cells[col].d;
+    auto candidate = problem.cells[col].d;
     while (candidate != col) {
-      int row = problem.unlink_row_containing(candidate);
+      auto row = problem.unlink_row_containing(candidate);
       if (row) {
         result.emplace_back(row);
         solve(f, problem.links[col].n);
@@ -264,35 +277,35 @@ template <typename OStream> OStream & operator << (OStream & os, const torus & t
   return os;
 }
 
-void queens(int n) {
+void queens(uint32_t n) {
   std::cout << n << " queens\n";
-  int nn = n+n-2;
+  uint32_t nn = n+n-2;
 //  auto organ = [=](int i) { return (i&1 ? n-1-i : n+i) >> 1; };
-  auto organ = [=](int i) { return i; };
+  auto organ = [=](uint32_t i) { return i; };
 
-  auto row = [=](int i) { return organ(i); };
-  auto col = [=](int i) { return n + organ(i); };
-  auto a = [=](int i) { return 2*n + i; };
-  auto b = [=](int i) { return 2*n + nn + i; };
+  auto row = [=](uint32_t i) { return organ(i); };
+  auto col = [=](uint32_t i) { return n + organ(i); };
+  auto a = [=](uint32_t i) { return 2*n + i; };
+  auto b = [=](uint32_t i) { return 2*n + nn + i; };
   auto x = torus(2*n,2*nn);
-  std::vector<int> option;
-  std::map<int,std::tuple<int,int>> rows;
-  for(int j=0;j<n;++j) {
+  std::vector<uint32_t> option;
+  std::map<uint32_t,std::tuple<uint8_t,uint8_t>> rows;
+  for(uint8_t j=0;j<n;++j) {
     option.resize(0);
     option.emplace_back(row(j));
-    for (int k=0;k<n;++k) {
+    for (uint8_t k=0;k<n;++k) {
       option.resize(1);
       option.emplace_back(col(k));
-      int t = j+k;
+      uint8_t t = j+k;
       if (t && t < nn) option.emplace_back(a(t));
       t = n-1-j+k;
       if (t && t < nn) option.emplace_back(b(t));
-      rows.emplace(x.add_row(option),std::tuple<int,int>(j,k)); // interpret the row
+      rows.emplace(x.add_row(option),std::tuple<uint8_t,uint8_t>(j,k)); // interpret the row
     }
   }
   x.sort_links();
   auto y = recursive_solver(x);
-  y.solve([&](std::vector<int> & is) {
+  y.solve([&](std::vector<uint32_t> & is) {
     bool first = true;
     for (auto i : is) {
       auto result = rows.find(i);
@@ -318,7 +331,7 @@ void simple() {
   x.sort_links(); // lame
   // std::cout << x;
   auto y = recursive_solver(x);
-  y.solve([&](std::vector<int> & is) {
+  y.solve([&](std::vector<uint32_t> & is) {
     bool first = true;
     for (auto i : is) {
       if (!first) std::cout << ' ';
@@ -330,6 +343,5 @@ void simple() {
 }
 
 int main(int argc, char ** argv) {
-  queens(8);
-  // simple();
+  queens(7);
 }
