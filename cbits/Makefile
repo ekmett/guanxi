@@ -1,2 +1,2 @@
 dlx: dlx.cpp
-	g++ -std=c++11 -Wall dlx.cpp -o dlx -DTEST
+	g++ -std=c++11 -Wall dlx.cpp -g -o dlx -DTEST

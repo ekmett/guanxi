@@ -7,9 +7,7 @@
 
 // compute exact covers using dancing links
 
-/*              01234567890
-                     CFHIABDEGJ
-
+/*
                      2212212112
   ABCDEFGHIJ|KLM     ABCDEFGHIJ0
   1100001001 010 +   AB    G  J
@@ -63,17 +61,20 @@ struct torus {
     cells.reserve(total_columns+2);
     links.reserve(columns);
 
-    for (uint32_t i=0;i<total_columns;++i)
+    // build cells, and two sentinels
+    for (uint32_t i=0;i<total_columns+2;++i)
       cells.emplace_back(0,i,i,i);
 
+    // mark the cell<->row sentinel, so we can identify rows
+    cells[total_columns].parity = 1;
+
+		// link the primary columns in a cycle
     for (uint32_t i=0;i<columns;++i)
       links.emplace_back(pred_mod(i), succ_mod(i));
 
+    // link the secondary columns to themselves
     for (uint32_t i=columns;i<total_columns;++i)
       links.emplace_back(i,i);
-
-    cells.emplace_back(1,0,0,0); // sentinel between the columns and rows
-    cells.emplace_back(0,0,0,0); // sentinel after all of the rows
   }
 
   template <typename T>
@@ -89,7 +90,7 @@ struct torus {
       cells[u].d = cells[j].u = base + i++;
       inc(j);
     }
-    cells.emplace_back(!parity,-1,-1,-1); // restore the sentinel after all of the rows
+    cells.emplace_back(!parity,base+i,base+i,base+i);
     return base;
   }
 
@@ -104,10 +105,8 @@ struct torus {
       cells.emplace_back(parity,j,u,j);
       cells[u].d = cells[j].u = base + i++;
       inc(j);
-      // TODO: this should shuffle links incrementally
-      // rather than make me pay for it at the end
     }
-    cells.emplace_back(!parity,-1,-1,-1); // restore the sentinel after all of the rows
+    cells.emplace_back(!parity,base+i,base+i,base+i);
     return base;
   }
 
@@ -116,7 +115,6 @@ struct torus {
     ++counts[column];
   }
 
-  // TODO: make pithy
   bool mark(uint32_t column) noexcept {
     assert(column < total_columns);
     if (cells[column].parity) return true;
@@ -125,8 +123,7 @@ struct torus {
     links[cell.n].p = cell.p;
     links[cell.p].n = cell.n;
     return false;
-    //
-  } // mark a column used, return true if already used
+  }
 
   void release(uint32_t column) noexcept {
     assert(column < total_columns);
@@ -135,7 +132,7 @@ struct torus {
     auto &cell = links[column];
     links[cell.p].n = column;
     links[cell.n].p = column;
-  } // unmark a used column
+  }
 
   // unlink a single cell and mark the column it is in
   // returns true on conflict and if so, does _not_ remove the link.
@@ -193,7 +190,7 @@ struct torus {
 
   template <typename Fn> void for_row(uint32_t row, Fn f) {
     assert(row<cells.size()); // valid cell
-    assert(cells[row].parity /= cells[row-1].parity); // is row
+    assert(cells[row].parity != cells[row-1].parity); // is row
     auto parity = cells[row].parity;
     if (parity)
       for (auto i=row;cells[i].parity;++i)
