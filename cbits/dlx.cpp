@@ -48,7 +48,7 @@ struct torus {
   , total_columns(columns + optional_columns)
   , starting_column(0)
   , cells(0)
-  , counts(columns,0)
+  , counts(total_columns,0)
   , links(0) {
     assert(total_columns>0);
 
