@@ -6,6 +6,7 @@
 #include <assert.h>
 
 // compute exact covers using dancing links
+//
 
 using namespace std;
 
@@ -15,12 +16,14 @@ struct cell {
   // in the cell header, parity stores whether we've already used this column
   std::uint32_t parity:1, column:31;
   link u,d;
+  cell(){}
   cell(std::int32_t parity, std::int32_t column, link u, link d)
   : parity(parity), column(column), u(u), d(d) {}
 };
 
 struct column {
   link p,n;
+  column(){}
   column(link p, link n)
   : p(p), n(n) {}
 };
@@ -44,10 +47,11 @@ struct torus {
   : columns(columns)
   , total_columns(columns + optional_columns)
   , starting_column(0)
-  , cells()
+  , cells(0)
   , counts(columns,0)
-  , links() {
+  , links(0) {
     assert(total_columns>0);
+
     cells.reserve(total_columns+2);
     links.reserve(columns);
 
@@ -65,6 +69,9 @@ struct torus {
     // link the secondary columns to themselves
     for (uint32_t i=columns;i<total_columns;++i)
       links.emplace_back(i,i);
+
+    assert(cells.size() == total_columns + 2);
+    assert(links.size() == total_columns);
   }
 
   template <typename T>
@@ -73,9 +80,10 @@ struct torus {
     auto parity = cells[base].parity;
     cells.pop_back(); // drop the current terminating sentinel
     uint32_t i = 0;
-    for (auto j : values) {
+    for (auto const & j : values) {
       assert(j < total_columns);
       auto u = cells[j].u;
+      assert(u < cells.size());
       cells.emplace_back(parity,j,u,j);
       cells[u].d = cells[j].u = base + i++;
       inc(j);
@@ -89,7 +97,7 @@ struct torus {
     auto parity = cells[base].parity;
     cells.pop_back(); // drop the current terminating sentinel
     uint32_t i = 0;
-    for (auto j : values) {
+    for (auto const & j : values) {
       assert(j < total_columns);
       auto u = cells[j].u;
       cells.emplace_back(parity,j,u,j);
@@ -109,7 +117,7 @@ struct torus {
     assert(column < total_columns);
     if (cells[column].parity) return true;
     cells[column].parity = 1;
-    auto &cell = links[column];
+    auto const &cell = links[column];
     links[cell.n].p = cell.p;
     links[cell.p].n = cell.n;
     return false;
@@ -119,7 +127,7 @@ struct torus {
     assert(column < total_columns);
     assert(cells[column].parity);
     cells[column].parity = 0;
-    auto &cell = links[column];
+    auto const &cell = links[column];
     links[cell.p].n = column;
     links[cell.n].p = column;
   }
@@ -128,7 +136,7 @@ struct torus {
   // returns true on conflict and if so, does _not_ remove the link.
   bool unlink(uint32_t i) noexcept {
     assert(i < cells.size());
-    auto & cell = cells[i];
+    auto const & cell = cells[i];
     if (mark(cell.column)) return true;
     cells[cell.u].d = cell.d;
     cells[cell.d].u = cell.u;
@@ -138,7 +146,7 @@ struct torus {
   // must be done in the opposite order of unlink.
   void relink(uint32_t i) noexcept {
     assert(i < cells.size());
-    auto & cell = cells[i];
+    auto const & cell = cells[i];
     release(cell.column);
     cells[cell.u].d = i;
     cells[cell.d].u = i;
@@ -237,13 +245,13 @@ struct recursive_solver {
   void solve(Fn f) {
     // check to make sure we have _any_ mandatory columns first
     if (problem.columns) solve(f,problem.starting_column);
-    else f(result); // otherwise the empty solution is a solution
+    else f((std::vector<uint32_t> const &)result); // otherwise the empty solution is a solution
   }
 
   template <typename Fn>
   void solve(Fn f, uint32_t col) {
     if (problem.cells[col].parity) {
-      f(result);
+      f((std::vector<uint32_t> const &)result);
       return;
     }
     auto candidate = problem.cells[col].d;
@@ -280,7 +288,7 @@ void queens(uint32_t n) {
   auto b = [=](uint32_t i) { return 2*n + nn + i; };
   auto x = torus(2*n,2*nn);
   std::vector<uint32_t> option;
-  std::map<uint32_t,std::tuple<uint8_t,uint8_t>> rows;
+  std::map<uint32_t,std::pair<uint8_t,uint8_t>> rows;
   for(uint8_t j=0;j<n;++j) {
     option.resize(0);
     option.emplace_back(row(j));
@@ -291,19 +299,19 @@ void queens(uint32_t n) {
       if (t && t < nn) option.emplace_back(a(t));
       t = n-1-j+k;
       if (t && t < nn) option.emplace_back(b(t));
-      rows.emplace(x.add_row(option),std::tuple<uint8_t,uint8_t>(j,k)); // interpret the row
+      rows.emplace(x.add_row(option),std::pair<uint8_t,uint8_t>(j,k)); // interpret the row
     }
   }
   x.sort_columns();
   auto y = recursive_solver(x);
-  y.solve([&](std::vector<uint32_t> & is) {
+  y.solve([&](const std::vector<uint32_t> & is) {
     bool first = true;
     for (auto i : is) {
       auto result = rows.find(i);
       if (result != rows.end()) {
         auto & p = rows.find(i)->second;
         if (!first) std::cout << ' ';
-        std::cout << int(std::get<0>(p)) << ',' << int(std::get<1>(p));
+        std::cout << int(p.first) << ',' << int(p.second);
         first = false;
       } else {
         std::cout << "!!!";
@@ -322,7 +330,7 @@ void simple() {
   x.sort_columns(); // lame
   // std::cout << x;
   auto y = recursive_solver(x);
-  y.solve([&](std::vector<uint32_t> & is) {
+  y.solve([&](const std::vector<uint32_t> & is) {
     bool first = true;
     for (auto i : is) {
       if (!first) std::cout << ' ';
