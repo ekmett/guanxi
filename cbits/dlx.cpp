@@ -69,9 +69,6 @@ struct torus {
     // link the secondary columns to themselves
     for (uint32_t i=columns;i<total_columns;++i)
       links.emplace_back(i,i);
-
-    assert(cells.size() == total_columns + 2);
-    assert(links.size() == total_columns);
   }
 
   template <typename T>
@@ -81,9 +78,7 @@ struct torus {
     cells.pop_back(); // drop the current terminating sentinel
     uint32_t i = 0;
     for (auto const & j : values) {
-      assert(j < total_columns);
       auto u = cells[j].u;
-      assert(u < cells.size());
       cells.emplace_back(parity,j,u,j);
       cells[u].d = cells[j].u = base + i++;
       inc(j);
@@ -109,12 +104,10 @@ struct torus {
   }
 
   void inc(uint32_t column) noexcept {
-    assert(column < total_columns);
     ++counts[column];
   }
 
   bool mark(uint32_t column) noexcept {
-    assert(column < total_columns);
     if (cells[column].parity) return true;
     cells[column].parity = 1;
     auto const &cell = links[column];
@@ -124,8 +117,6 @@ struct torus {
   }
 
   void release(uint32_t column) noexcept {
-    assert(column < total_columns);
-    assert(cells[column].parity);
     cells[column].parity = 0;
     auto const &cell = links[column];
     links[cell.p].n = column;
@@ -135,7 +126,6 @@ struct torus {
   // unlink a single cell and mark the column it is in
   // returns true on conflict and if so, does _not_ remove the link.
   bool unlink(uint32_t i) noexcept {
-    assert(i < cells.size());
     auto const & cell = cells[i];
     if (mark(cell.column)) return true;
     cells[cell.u].d = cell.d;
@@ -145,7 +135,6 @@ struct torus {
 
   // must be done in the opposite order of unlink.
   void relink(uint32_t i) noexcept {
-    assert(i < cells.size());
     auto const & cell = cells[i];
     release(cell.column);
     cells[cell.u].d = i;
@@ -154,7 +143,6 @@ struct torus {
 
   // returns 0 on conflict, row# of the row containing the cell otherwise
   uint32_t unlink_row_containing(uint32_t cell) noexcept {
-    assert(0<cell&&cell<cells.size());
     auto parity = cells[cell].parity;
     auto i=cell;
     uint32_t row_id;
@@ -187,8 +175,6 @@ struct torus {
   }
 
   template <typename Fn> void for_row(uint32_t row, Fn f) {
-    assert(row<cells.size()); // valid cell
-    assert(cells[row].parity != cells[row-1].parity); // is row
     auto parity = cells[row].parity;
     if (parity)
       for (auto i=row;cells[i].parity;++i)
@@ -211,8 +197,6 @@ struct torus {
       by_count.emplace_back(i);
 
     std::sort(by_count.begin(),by_count.end(), [&](uint32_t i, uint32_t j) noexcept {
-      assert(i<columns);
-      assert(j<columns);
       return counts[i] < counts[j];
     });
 
@@ -279,11 +263,8 @@ template <typename OStream> OStream & operator << (OStream & os, const torus & t
 
 void queens(uint32_t n) {
   uint32_t nn = n+n-2;
-//  auto organ = [=](int i) { return (i&1 ? n-1-i : n+i) >> 1; };
-  auto organ = [=](uint32_t i) { return i; };
-
-  auto row = [=](uint32_t i) { return organ(i); };
-  auto col = [=](uint32_t i) { return n + organ(i); };
+  auto row = [=](uint32_t i) { return i; };
+  auto col = [=](uint32_t i) { return n + i; };
   auto a = [=](uint32_t i) { return 2*n + i; };
   auto b = [=](uint32_t i) { return 2*n + nn + i; };
   auto x = torus(2*n,2*nn);
@@ -308,14 +289,11 @@ void queens(uint32_t n) {
     bool first = true;
     for (auto i : is) {
       auto result = rows.find(i);
-      if (result != rows.end()) {
-        auto & p = rows.find(i)->second;
-        if (!first) std::cout << ' ';
-        std::cout << int(p.first) << ',' << int(p.second);
-        first = false;
-      } else {
-        std::cout << "!!!";
-      }
+      assert(result != rows.end());
+      auto & p = rows.find(i)->second;
+      if (!first) std::cout << ' ';
+      std::cout << int(p.first) << ',' << int(p.second);
+      first = false;
     }
     std::cout << '\n';
   });
