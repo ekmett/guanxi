@@ -196,7 +196,8 @@ struct torus {
 
   // blech
   void sort_columns() noexcept {
-    std::vector<uint32_t> by_count;
+    std::vector<uint32_t> by_count(0);
+    by_count.reserve(columns);
 
     for (uint32_t i=0;i<columns;++i)
       by_count.emplace_back(i);
