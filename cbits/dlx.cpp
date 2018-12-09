@@ -5,8 +5,21 @@
 #include <iostream>
 #include <assert.h>
 
-// compute exact covers using dancing links
+// compute exact covers using (something like) dancing links
 //
+// This is currently not quite dancing links:
+//
+// 1.) We don't remove all rows containing conflicts with the solution
+// thus far yet, and instead mark the columns and backtrack on attempted update.
+//
+// This does too much work.
+//
+// We also don't knuth's minimal branching factor remaining statistic
+// but instead use a lame pre-computed count from the initial problem
+// a la DLZ's algorithm "F". This also does too much work.
+//
+// The latter mistake alone means we scale at approximately O(1.44^n)
+// rather than O(1.31951^n) like algorithm X
 
 using namespace std;
 
