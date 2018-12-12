@@ -10,23 +10,24 @@
 using namespace std;
 
 typedef uint32_t option;
+typedef uint32_t item;
+typedef uint32_t link;
 
 struct cell {
   uint32_t parity:1, item:31, u, d;
-  cell(int32_t parity=0, uint32_t item=0, uint32_t u=0, uint32_t d=0)
+  cell(uint32_t parity=0, uint32_t item=0, link u=0, link d=0)
   : parity(parity), item(item), u(u), d(d) {}
 };
 
-struct item {
+struct item_info {
   uint32_t p, n, cell, count;
-  item(uint32_t p=0, uint32_t n=0, uint32_t cell=0, uint32_t count=0)
+  item_info(item p=0, item n=0, link cell=0, uint32_t count=0)
   : p(p), n(n), cell(cell), count(count) {}
 };
 
-
 struct dlx {
   std::vector<cell> cells;
-  std::vector<item> items;
+  std::vector<item_info> items;
   std::vector<option> result; // rows
 
   dlx(uint32_t n=0, uint32_t k=0) noexcept
@@ -59,8 +60,8 @@ struct dlx {
 
   // dynamically add k items to the problem that must be satisfied
 	// but can only be satisfied once
-  uint32_t add_items(uint32_t k) {
-    if (!k) return items.size()-1; // how many columns do we have
+  item add_items(uint32_t k) {
+    if (!k) return items.size()-1; // how many items do we have
 
     auto cellbase = cells.size()-1;
     auto parity = cells[cellbase].parity;
@@ -94,8 +95,8 @@ struct dlx {
 
   // dynamically add k items to the problem that may be satisfied
 	// but can only be satisfied once
-  uint32_t add_optional_items(uint32_t k) {
-    if (!k) return items.size()-1; // how many columns do we have
+  item add_optional_items(uint32_t k) {
+    if (!k) return items.size()-1; // how many items do we have
     auto cellbase = cells.size()-1;
     auto parity = cells[cellbase].parity;
     cells.pop_back();
@@ -119,34 +120,36 @@ struct dlx {
 
   // add an option to the
   template <typename Iterator>
-  uint32_t add_option(Iterator first, Iterator last) {
+  option add_option(Iterator first, Iterator last) {
     auto base = cells.size()-1;
     auto parity = cells[base].parity;
     cells.pop_back(); // drop terminating sentinel
     uint32_t i = 0;
     for (Iterator it = first; it != last; ++it) {
-      uint32_t j = *it;
+      item j = *it;
       assert(j < items.size()-1); // exclude root
       auto u = cells[j].u;
       cells.emplace_back(parity,j,u,j);
       cells[u].d = cells[j].u = base + i++;
-      ++items[cells[j].item].count; // bump counts of the columns
+      ++items[cells[j].item].count; // bump counts of the items
     }
     cells.emplace_back(!parity);
     return base;
   }
 
   template <typename T>
-  uint32_t add_option(T values) {
+  option add_option(T values) {
     return add_option(values.begin(),values.end());
   }
 
-  uint32_t add_option(std::initializer_list<uint32_t> values) noexcept {
+  option add_option(std::initializer_list<item> values) noexcept {
     return add_option(values.begin(),values.end());
   }
+
+private:
   
   template <typename Fn> 
-  void for_row_containing_exclusive(uint32_t cell, Fn f) noexcept {
+  void for_option_containing_exclusive(link cell, Fn f) noexcept {
     auto parity = cells[cell].parity;
     auto i=cell-1;
     if (parity) {
@@ -160,37 +163,37 @@ struct dlx {
 
   // returns row# of the row containing the cell
   template <typename Fn> 
-  uint32_t for_row_containing(uint32_t cell, Fn f) noexcept {
+  option for_option_containing(link cell, Fn f) noexcept {
     auto parity = cells[cell].parity;
     auto i=cell;
-    uint32_t row_id=0;
+    option option_id=0;
     if (parity) {
       for (;cells[i].parity;--i) f(i);
-      row_id = i+1;
+      option_id = i+1;
       for (i=cell+1;cells[i].parity;++i) f(i);
     } else {
       for (;!cells[i].parity;--i) f(i);
-      row_id = i+1;
+      option_id = i+1;
       for (i=cell+1;!cells[i].parity;++i) f(i);
     }
-    return row_id; // ok
+    return option_id; // ok
   }
 
-  uint32_t pick(uint32_t c) {
-    return for_row_containing(c, [&](uint32_t i) {
+  option pick(link c) {
+    return for_option_containing(c, [&](link i) {
       auto & x = cells[i];
-      auto & col = items[x.item];
-			auto header = col.cell;
-      items[col.n].p = col.p;
-      items[col.p].n = col.n;
+      auto & item = items[x.item];
+			auto header = item.cell;
+      items[item.n].p = item.p;
+      items[item.p].n = item.n;
       for (auto j = x.u; j != header; j = cells[j].u)
-        for_row_containing_exclusive(j, [&](uint32_t k) {
+        for_option_containing_exclusive(j, [&](link k) {
           auto & y = cells[k];
           cells[y.u].d = y.d;
           cells[y.d].u = y.u;
         });
       for (auto j = x.d; j != header; j = cells[j].d)
-        for_row_containing_exclusive(j, [&](uint32_t k) {
+        for_option_containing_exclusive(j, [&](link k) {
           auto & y = cells[k];
           cells[y.u].d = y.d;
           cells[y.d].u = y.u;
@@ -198,21 +201,21 @@ struct dlx {
     });
   }
 
-  void unpick(uint32_t c) {
-    for_row_containing(c, [&](uint32_t i) {
+  void unpick(link c) {
+    for_option_containing(c, [&](link i) {
       auto & x = cells[i];
-      auto & col = items[x.item];
-			auto header = col.cell;
-      items[col.n].p = x.item;
-      items[col.p].n = x.item;
+      auto & item = items[x.item];
+			auto header = item.cell;
+      items[item.n].p = x.item;
+      items[item.p].n = x.item;
       for (auto j = x.u; j != header; j = cells[j].u)
-        for_row_containing_exclusive(j, [&](uint32_t k) {
+        for_option_containing_exclusive(j, [&](link k) {
           auto & y = cells[k];
           cells[y.u].d = k;
           cells[y.d].u = k;
         });
       for (auto j = x.d; j != header; j = cells[j].d)
-        for_row_containing_exclusive(j, [&](uint32_t k) {
+        for_option_containing_exclusive(j, [&](link k) {
           auto & y = cells[k];
           cells[y.u].d = k;
           cells[y.d].u = k;
@@ -220,12 +223,12 @@ struct dlx {
     });
   }
 
-  constexpr uint32_t root() const { return items.size()-1; }
+  constexpr item root() const { return items.size()-1; }
 
-  uint32_t best_column() const {
-    uint32_t best = root();
+  item best_item() const {
+    item best = root();
     uint32_t best_count = INT32_MAX;
-    for (uint32_t i = items[root()].n; i != root(); i = items[i].n) {
+    for (item i = items[root()].n; i != root(); i = items[i].n) {
        uint32_t count = items[i].count;
        if (count < best_count) {
          best_count = count;
@@ -235,14 +238,15 @@ struct dlx {
     return best;
   }
 
+public:
   template <typename Fn>
   void solve(Fn f) {
-    uint32_t col = best_column();
-    if (col == root()) {
+    auto item = best_item();
+    if (item == root()) {
       f((std::vector<uint32_t> const &)result); // otherwise the empty solution is a solution
       return;
     }
-    auto header = items[col].cell;
+    auto header = items[item].cell;
     auto candidate = cells[header].d;
     while (candidate != header) {
       auto row = pick(candidate);
@@ -262,9 +266,10 @@ void queens(uint32_t n) {
 	auto rows = x.add_items(n);
   auto cols = x.add_items(n);
   uint32_t nn = n+n-2;
-	auto a = x.add_optional_items(nn);
-	auto b = x.add_optional_items(nn);
-  auto organ = [&](int i) { return (i&1?n-1-i:n+i)>>1; };
+	auto diagonals1 = x.add_optional_items(nn);
+	auto diagonals2 = x.add_optional_items(nn);
+  // "organ pipe" order
+  auto organ = [=](int i) { return (i&1?n-1-i:n+i)>>1; };
   std::vector<uint32_t> option;
   for(uint8_t j=0;j<n;++j) {
     option.resize(0);
@@ -275,9 +280,9 @@ void queens(uint32_t n) {
 			int c = organ(k);
       option.emplace_back(cols + c);
       uint8_t t = r+c;
-      if (t && t < nn) option.emplace_back(a+t);
+      if (t && t < nn) option.emplace_back(diagonals1+t);
       t = n-1-r+c;
-      if (t && t < nn) option.emplace_back(b+t);
+      if (t && t < nn) option.emplace_back(diagonals2+t);
       x.add_option(option.begin(),option.end());
     }
   }
