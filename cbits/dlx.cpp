@@ -91,13 +91,8 @@ struct torus {
     return base;
   }
   
-  // returns row# of the row containing the cell
   template <typename Fn> 
   void for_row_containing_exclusive(uint32_t cell, Fn f) noexcept {
-    for_row_containing(cell,[&](uint32_t j) {
-      if (j != cell) f(j);
-	  });
-/*
     auto parity = cells[cell].parity;
     auto i=cell-1;
     if (parity) {
@@ -107,7 +102,6 @@ struct torus {
       for (;!cells[i].parity;--i) f(i);
       for (i=cell+1;!cells[i].parity;++i) f(i);
     }
-*/
   }
 
   // returns row# of the row containing the cell
@@ -134,14 +128,19 @@ struct torus {
       auto & col = items[x.item];
       items[col.n].p = col.p;
       items[col.p].n = col.n;
-      for (auto j = x.d; j != i; j = cells[j].d)
-        if (j > items.size()) // lame
+      for (auto j = x.u; j != x.item; j = cells[j].u)
         for_row_containing_exclusive(j, [&](uint32_t k) {
           auto & y = cells[k];
           cells[y.u].d = y.d;
           cells[y.d].u = y.u;
         });
-     });
+      for (auto j = x.d; j != x.item; j = cells[j].d)
+        for_row_containing_exclusive(j, [&](uint32_t k) {
+          auto & y = cells[k];
+          cells[y.u].d = y.d;
+          cells[y.d].u = y.u;
+        });
+    });
   }
 
   void unpick(uint32_t c) {
@@ -150,14 +149,19 @@ struct torus {
       auto & col = items[x.item];
       items[col.n].p = x.item;
       items[col.p].n = x.item;
-      for (auto j = cells[i].d; j != i; j = cells[j].d)
-        if (j > items.size()) // lame
+      for (auto j = x.u; j != x.item; j = cells[j].u)
         for_row_containing_exclusive(j, [&](uint32_t k) {
           auto & y = cells[k];
           cells[y.u].d = k;
           cells[y.d].u = k;
         });
-     });
+      for (auto j = x.d; j != x.item; j = cells[j].d)
+        for_row_containing_exclusive(j, [&](uint32_t k) {
+          auto & y = cells[k];
+          cells[y.u].d = k;
+          cells[y.d].u = k;
+        });
+    });
   }
 
   constexpr uint32_t root() const { return items.size()-1; }
