@@ -17,10 +17,10 @@ struct cell {
 };
 
 struct item {
-  uint32_t p,n;
+  uint32_t p,n,cell,count;
   item(){}
-  item(uint32_t p, uint32_t n)
-  : p(p), n(n) {}
+  item(uint32_t p, uint32_t n, uint32_t cell, uint32_t count)
+  : p(p), n(n), cell(cell), count(count) {}
 };
 
 struct torus {
@@ -44,17 +44,17 @@ struct torus {
 
     // link items
     for (uint32_t i=0;i<n;++i)
-      items.emplace_back((i+n-1)%n, (i+1)%n);
+      items.emplace_back((i+n-1)%n, (i+1)%n, i, 0);
 
     // link optional items to themselves
     for (uint32_t i=n;i<N;++i)
-      items.emplace_back(i,i);
+      items.emplace_back(i,i,i,0);
 
     if (n) {
-      items.emplace_back(n-1,0);
+      items.emplace_back(n-1,0,N,0);
       items[0].p = items[n-1].n = N;
     } else {
-      items.emplace_back(N,N);
+      items.emplace_back(N,N,N,0);
     }
   }
 
@@ -69,7 +69,7 @@ struct torus {
       auto u = cells[j].u;
       cells.emplace_back(parity,j,u,j);
       cells[u].d = cells[j].u = base + i++;
-      ++cells[j].item; // bump counts of the columns
+      ++items[cells[j].item].count; // bump counts of the columns
     }
     cells.emplace_back(!parity,base+i,base+i,base+i);
     return base;
@@ -85,7 +85,7 @@ struct torus {
       auto u = cells[j].u;
       cells.emplace_back(parity,j,u,j);
       cells[u].d = cells[j].u = base + i++;
-      ++cells[j].item; // bump counts of the columns
+      ++items[cells[j].item].count; // bump counts of the columns
     }
     cells.emplace_back(!parity,base+i,base+i,base+i);
     return base;
@@ -126,15 +126,16 @@ struct torus {
     return for_row_containing(c, [&](uint32_t i) {
       auto & x = cells[i];
       auto & col = items[x.item];
+			auto header = col.cell;
       items[col.n].p = col.p;
       items[col.p].n = col.n;
-      for (auto j = x.u; j != x.item; j = cells[j].u)
+      for (auto j = x.u; j != header; j = cells[j].u)
         for_row_containing_exclusive(j, [&](uint32_t k) {
           auto & y = cells[k];
           cells[y.u].d = y.d;
           cells[y.d].u = y.u;
         });
-      for (auto j = x.d; j != x.item; j = cells[j].d)
+      for (auto j = x.d; j != header; j = cells[j].d)
         for_row_containing_exclusive(j, [&](uint32_t k) {
           auto & y = cells[k];
           cells[y.u].d = y.d;
@@ -147,15 +148,16 @@ struct torus {
     for_row_containing(c, [&](uint32_t i) {
       auto & x = cells[i];
       auto & col = items[x.item];
+			auto header = col.cell;
       items[col.n].p = x.item;
       items[col.p].n = x.item;
-      for (auto j = x.u; j != x.item; j = cells[j].u)
+      for (auto j = x.u; j != header; j = cells[j].u)
         for_row_containing_exclusive(j, [&](uint32_t k) {
           auto & y = cells[k];
           cells[y.u].d = k;
           cells[y.d].u = k;
         });
-      for (auto j = x.d; j != x.item; j = cells[j].d)
+      for (auto j = x.d; j != header; j = cells[j].d)
         for_row_containing_exclusive(j, [&](uint32_t k) {
           auto & y = cells[k];
           cells[y.u].d = k;
@@ -170,7 +172,7 @@ struct torus {
     uint32_t best = root();
     uint32_t best_count = INT32_MAX;
     for (uint32_t i = items[root()].n; i != root(); i = items[i].n) {
-       uint32_t count = cells[i].item;
+       uint32_t count = items[i].count;
        if (count < best_count) {
          best_count = count;
          best = i;
@@ -186,8 +188,9 @@ struct torus {
       f((std::vector<uint32_t> const &)result); // otherwise the empty solution is a solution
       return;
     }
-    auto candidate = cells[col].d;
-    while (candidate != col) {
+    auto header = items[col].cell;
+    auto candidate = cells[header].d;
+    while (candidate != header) {
       auto row = pick(candidate);
       if (row) {
         result.emplace_back(row);
@@ -201,18 +204,21 @@ struct torus {
 };
 
 void queens(uint32_t n) {
+  auto organ = [&](int i) { return (i&1?n-1-i:n+i)>>1; };
   uint32_t nn = n+n-2;
   auto x = torus(2*n,2*nn-2);
   std::vector<uint32_t> option;
   for(uint8_t j=0;j<n;++j) {
     option.resize(0);
-    option.emplace_back(j);
+    int r = organ(j);
+    option.emplace_back(r);
     for (uint8_t k=0;k<n;++k) {
       option.resize(1);
-      option.emplace_back(n+k);
-      uint8_t t = j+k;
+			int c = organ(k);
+      option.emplace_back(n+c);
+      uint8_t t = r+c;
       if (t && t < nn) option.emplace_back(2*n-1+t);
-      t = n-1-j+k;
+      t = n-1-r+c;
       if (t && t < nn) option.emplace_back(2*n+nn-2+t);
       x.add_option(option);
     }
@@ -230,5 +236,5 @@ void queens(uint32_t n) {
 }
 
 int main(int argc, char ** argv) {
-  queens(12);
+  queens(8);
 }
