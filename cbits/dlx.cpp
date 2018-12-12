@@ -11,15 +11,13 @@ using namespace std;
 
 struct cell {
   uint32_t parity:1, item:31,u,d;
-  cell(){}
-  cell(int32_t parity, uint32_t item, uint32_t u, uint32_t d)
+  cell(int32_t parity=0, uint32_t item=0, uint32_t u=0, uint32_t d=0)
   : parity(parity), item(item), u(u), d(d) {}
 };
 
 struct item {
   uint32_t p,n,cell,count;
-  item(){}
-  item(uint32_t p, uint32_t n, uint32_t cell, uint32_t count)
+  item(uint32_t p=0, uint32_t n=0, uint32_t cell=0, uint32_t count=0)
   : p(p), n(n), cell(cell), count(count) {}
 };
 
@@ -40,7 +38,7 @@ struct torus {
     for (uint32_t i=0;i<N;++i)
       cells.emplace_back(1,i,i,i);
 
-    cells.emplace_back(0,N,N,N);
+    cells.emplace_back(0); // sentinel
 
     // link items
     for (uint32_t i=0;i<n;++i)
@@ -58,6 +56,48 @@ struct torus {
     }
   }
 
+  uint32_t add_items(uint32_t k) {
+    if (!k) return items.size()-1; // how many columns do we have
+    auto cellbase = cells.size()-1;
+    auto parity = cells[cellbase].parity;
+    cells.pop_back();
+    auto itembase = items.size()-1;
+    auto p = items[itembase].p; // grab old root prev
+    auto n = items[itembase].n; // grab old root next
+    items.pop_back();
+    uint32_t i = 0;
+    for (;i<k;++i) {
+      cells.emplace_back(parity,itembase+i,cellbase+i,cellbase+i);
+      items.emplace_back(i ? itembase+i-1 : p, itembase+i+1, cellbase+i,0);
+		}
+    items.emplace_back(itembase+i-1, n, 0, 0);
+    cells.emplace_back(~parity);
+	  items[p].n = itembase;
+    items[n].p = itembase+i;
+    return itembase;
+	}
+
+  uint32_t add_optional_items(uint32_t k) {
+    if (!k) return items.size()-1; // how many columns do we have
+    auto cellbase = cells.size()-1;
+    auto parity = cells[cellbase].parity;
+    cells.pop_back();
+    auto itembase = items.size()-1;
+    auto p = items[itembase].p; // grab old root prev
+    auto n = items[itembase].n; // grab old root next
+    items.pop_back();
+    uint32_t i = 0;
+    for (;i<k;++i) {
+      cells.emplace_back(parity,itembase+i,cellbase+i,cellbase+i);
+      items.emplace_back(itembase+i, itembase+i, cellbase+i,0);
+		}
+    items.emplace_back(p, n, 0, 0);
+    cells.emplace_back(~parity);
+	  items[p].n = itembase+i;
+    items[n].p = itembase+i;
+    return itembase;
+	}
+
   template <typename T>
   uint32_t add_option(T values) {
     auto base = cells.size()-1;
@@ -71,7 +111,7 @@ struct torus {
       cells[u].d = cells[j].u = base + i++;
       ++items[cells[j].item].count; // bump counts of the columns
     }
-    cells.emplace_back(!parity,base+i,base+i,base+i);
+    cells.emplace_back(!parity);
     return base;
   }
 
@@ -87,7 +127,7 @@ struct torus {
       cells[u].d = cells[j].u = base + i++;
       ++items[cells[j].item].count; // bump counts of the columns
     }
-    cells.emplace_back(!parity,base+i,base+i,base+i);
+    cells.emplace_back(!parity);
     return base;
   }
   
