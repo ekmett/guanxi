@@ -26,7 +26,7 @@ struct torus {
   std::vector<item> items;
   std::vector<uint32_t> result; // rows
 
-  torus(uint32_t n, uint32_t k) noexcept
+  torus(uint32_t n=0, uint32_t k=0) noexcept
   : cells(0)
   , items(0)
   , result(0) {
@@ -58,22 +58,45 @@ struct torus {
 
   uint32_t add_items(uint32_t k) {
     if (!k) return items.size()-1; // how many columns do we have
+
     auto cellbase = cells.size()-1;
     auto parity = cells[cellbase].parity;
-    cells.pop_back();
     auto itembase = items.size()-1;
     auto p = items[itembase].p; // grab old root prev
     auto n = items[itembase].n; // grab old root next
+
+    items[p].n = n; // unlink root
+		items[n].p = p;
+
+    bool was_empty = n == itembase;
+
+    cells.pop_back();
     items.pop_back();
+
     uint32_t i = 0;
     for (;i<k;++i) {
+			// new header
       cells.emplace_back(parity,itembase+i,cellbase+i,cellbase+i);
-      items.emplace_back(i ? itembase+i-1 : p, itembase+i+1, cellbase+i,0);
+      items.emplace_back(
+			  i ? itembase+(i+k-1)%k : itembase+k,
+				itembase+(i+1)%k,
+				cellbase+i,
+				0
+			 );
 		}
-    items.emplace_back(itembase+i-1, n, 0, 0);
+    items.emplace_back(
+		  was_empty ? itembase+k-1 : items[n].p,
+			itembase,
+			0,
+			0
+	  );
+    if (!was_empty) {
+      items[n].p = itembase+k-1;
+      items[itembase+k-1].n = n;
+		} else {
+			items[itembase+k-1].n = itembase+k; // root
+		}
     cells.emplace_back(~parity);
-	  items[p].n = itembase;
-    items[n].p = itembase+i;
     return itembase;
 	}
 
@@ -84,7 +107,9 @@ struct torus {
     cells.pop_back();
     auto itembase = items.size()-1;
     auto p = items[itembase].p; // grab old root prev
+		if (p == itembase) p = itembase + k;
     auto n = items[itembase].n; // grab old root next
+		if (n == itembase) n = itembase + k;
     items.pop_back();
     uint32_t i = 0;
     for (;i<k;++i) {
@@ -246,29 +271,32 @@ struct torus {
 void queens(uint32_t n) {
   auto organ = [&](int i) { return (i&1?n-1-i:n+i)>>1; };
   uint32_t nn = n+n-2;
-  auto x = torus(2*n,2*nn-2);
+  auto x = torus();
+	auto rows = x.add_items(n);
+  auto cols = x.add_items(n);
+	auto a = x.add_optional_items(nn);
+	auto b = x.add_optional_items(nn);
   std::vector<uint32_t> option;
   for(uint8_t j=0;j<n;++j) {
     option.resize(0);
     int r = organ(j);
-    option.emplace_back(r);
+    option.emplace_back(rows + r);
     for (uint8_t k=0;k<n;++k) {
       option.resize(1);
 			int c = organ(k);
-      option.emplace_back(n+c);
+      option.emplace_back(cols + c);
       uint8_t t = r+c;
-      if (t && t < nn) option.emplace_back(2*n-1+t);
+      if (t && t < nn) option.emplace_back(a+t);
       t = n-1-r+c;
-      if (t && t < nn) option.emplace_back(2*n+nn-2+t);
+      if (t && t < nn) option.emplace_back(b+t);
       x.add_option(option);
     }
   }
   x.solve([&](const std::vector<uint32_t> & is) {
     bool first = true;
     for (auto i : is) {
-      if (!first)
-        std::cout << ' ';
-      std::cout << x.cells[i].item << ',' << (x.cells[i+1].item-n);
+      if (!first) std::cout << ' ';
+      std::cout << (x.cells[i].item-rows) << ',' << (x.cells[i+1].item-cols);
       first = false;
     }
     std::cout << '\n';
@@ -276,5 +304,5 @@ void queens(uint32_t n) {
 }
 
 int main(int argc, char ** argv) {
-  queens(8);
+  queens(12);
 }
