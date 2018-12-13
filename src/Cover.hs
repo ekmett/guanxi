@@ -16,6 +16,7 @@ module Cover
   , addOption
   , each
   , solve
+  , reset
   ) where
 
 import Control.Applicative

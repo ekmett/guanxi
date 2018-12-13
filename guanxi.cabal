@@ -19,6 +19,8 @@ extra-source-files:
   QUESTIONS.md
   README.md
   test/doctest.json
+  cbits/queens.cpp
+  cbits/Makefile
 
 source-repository head
   type: git

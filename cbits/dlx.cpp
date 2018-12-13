@@ -178,7 +178,7 @@ bool dlx::next(item * & results, int & nresults) noexcept {
       {
         item best = best_item();
         if (best == root()) {
-          current_state = state::done;
+          current_state = state::backtracking;
           results = result.data();
           nresults = result.size();
           return true;
