@@ -114,3 +114,8 @@ test-suite spec
   other-modules: Spec
   build-depends: hspec >= 2 && < 3
   build-tool-depends: hspec-discover:hspec-discover
+
+test-suite queens
+  import: test
+  type: exitcode-stdio-1.0
+  main-is: queens.hs

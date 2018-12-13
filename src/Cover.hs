@@ -10,7 +10,7 @@
 
 module Cover
   ( Cover
-  , newCover
+  , newCover, newCover_
   , addItems
   , addOptionalItems
   , addOption
@@ -56,20 +56,23 @@ newCover n k = unsafeIOToPrim $ do
   dlx <- c_new (fromIntegral n) (fromIntegral k)
   Cover <$> newForeignPtr c_delete dlx
 
+newCover_ :: PrimMonad m => m (Cover m)
+newCover_ = newCover 0 0
+
 withCover :: HasCover m s => s -> (Ptr DLX -> IO r) -> m r
 withCover (cover -> Cover d) f = unsafeIOToPrim $ withForeignPtr d f
 
-addItems :: HasCover m s => s -> Int -> m Item
+addItems :: HasCover m s => s -> Int -> m Int -- Item
 addItems d i = withCover d $ \p -> fromIntegral <$> c_add_items p (fromIntegral i)
 
-addOptionalItems :: HasCover m s => s -> Int -> m Item
+addOptionalItems :: HasCover m s => s -> Int -> m Int
 addOptionalItems d i = withCover d $ \p -> fromIntegral <$> c_add_optional_items p (fromIntegral i)
 
-addOption :: HasCover m s => s -> [Item] -> m Option
+addOption :: HasCover m s => s -> [Int] -> m Option
 addOption d is = withCover d $ \p -> do
   let n = length is
   allocaBytes (n * sizeOfItem) $ \ (q :: Ptr Item) -> do
-    ifor_ is $ \i item -> pokeElemOff q i item 
+    ifor_ is $ \i item -> pokeElemOff q i (fromIntegral item :: Item)
     c_add_option p q (fromIntegral n)
 
 sizeOfPtr, sizeOfItem, sizeOfWord32 :: Int
@@ -77,20 +80,20 @@ sizeOfPtr = sizeOf (undefined :: Ptr Item)
 sizeOfItem = sizeOf (undefined :: Item)
 sizeOfWord32 = sizeOf (undefined :: Word32)
 
-next :: HasCover m s => s -> m (Maybe [Item])
+next :: HasCover m s => s -> m (Maybe [Int])
 next d = withCover d $ \p -> allocaBytes (sizeOfPtr + sizeOfWord32) $ \q ->
   c_next p (castPtr q) (plusPtr q sizeOfPtr) >>= \ok -> if
     | ok /= 0 -> do
       (is :: Ptr Item) <- peekByteOff q 0
       (n :: Word32) <- peekByteOff q sizeOfPtr
-      Just <$> for [0..n-1] (peekElemOff is . fromIntegral)
+      Just <$> for [0..n-1] (fmap fromIntegral . peekElemOff is . fromIntegral)
     | otherwise -> pure Nothing;
 
 reset :: HasCover m s => s -> m ()
 reset d = withCover d c_reset
  
 -- NB: this "consumes" the cover. You can't use it until solve is finished.
-each :: (HasCover m s, Alternative m) => s -> m [Item]
+each :: (HasCover m s, Alternative m) => s -> m [Int]
 each d = next d >>= \case
   Nothing -> empty
   Just xs -> pure xs <|> each d
@@ -109,7 +112,7 @@ each d = next d >>= \case
 -- >>> solve x print
 -- [4,6]
 -- [8,10]
-solve :: HasCover m s => s -> ([Item] -> m ()) -> m ()
+solve :: HasCover m s => s -> ([Int] -> m ()) -> m ()
 solve d f = next d >>= \case
   Nothing -> pure ()
   Just xs -> f xs *> solve d f
