@@ -37,7 +37,7 @@ struct zdd_node {
 
 namespace std {
   template <> struct hash<zdd_node> {
-    std::size_t operator()(const zdd_node & n) const {
+    std::size_t operator()(const zdd_node & n) const noexcept {
       uint64_t k = n.value;
       k ^= k >> 33;
       k *= 0xff51afd7ed558ccdULL;
@@ -56,7 +56,7 @@ struct dxz {
   std::vector<item_info> items;
   std::vector<bool> item_mask;
   std::vector<zdd_node> heap;
-  std::unordered_map<zdd_node, zdd, uint64_t(*)(const zdd_node&) > cache;
+  std::unordered_map<zdd_node, zdd> cache;
   std::unordered_map<std::vector<bool>, zdd> memo;
 
   static constexpr const zdd bottom = 0;
