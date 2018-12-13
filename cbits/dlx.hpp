@@ -56,6 +56,8 @@ struct dlx {
 
   bool next(item * & results, int & nresults) noexcept;
 
+  void reset() noexcept;
+
   template <typename Fn> void solve(Fn f);
 
 private:

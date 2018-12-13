@@ -14,13 +14,9 @@ typedef uint32_t option;
 typedef struct dlx dlx;
 
 extern dlx * dlx_new(int, int);
-
 extern void dlx_delete(dlx *);
-
 extern item dlx_add_items(dlx *, int);
-
 extern item dlx_add_optional_items(dlx *, int);
-
 extern option dlx_add_option(dlx *, item *, int);
 
 /**
@@ -31,6 +27,8 @@ extern option dlx_add_option(dlx *, item *, int);
  * advancing to the next solution invalidates these pointers
  */
 extern int dlx_next(dlx *, item **, int *);
+
+extern void dlx_reset(dlx *);
 
 #ifdef __cplusplus
 }

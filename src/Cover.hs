@@ -48,6 +48,7 @@ foreign import ccall unsafe "dlx_capi.h dlx_add_items" c_add_items :: Ptr DLX ->
 foreign import ccall unsafe "dlx_capi.h dlx_add_optional_items" c_add_optional_items :: Ptr DLX -> Word32 -> IO Item
 foreign import ccall unsafe "dlx_capi.h dlx_add_option" c_add_option :: Ptr DLX -> Ptr Item -> Word32 -> IO Option
 foreign import ccall unsafe "dlx_capi.h dlx_next" c_next :: Ptr DLX -> Ptr (Ptr Item) -> Ptr Word32 -> IO CInt
+foreign import ccall unsafe "dlx_capi.h dlx_reset" c_reset :: Ptr DLX -> IO ()
 
 newCover :: PrimMonad m => Int -> Int -> m (Cover m)
 newCover n k = unsafeIOToPrim $ do
@@ -83,6 +84,9 @@ next d = withCover d $ \p -> allocaBytes (sizeOfPtr + sizeOfWord32) $ \q ->
       (n :: Word32) <- peekByteOff q sizeOfPtr
       Just <$> for [0..n-1] (peekElemOff is . fromIntegral)
     | otherwise -> pure Nothing;
+
+reset :: HasCover m s => s -> m ()
+reset d = withCover d c_reset
  
 -- NB: this "consumes" the cover. You can't use it until solve is finished.
 each :: (HasCover m s, Alternative m) => s -> m [Item]

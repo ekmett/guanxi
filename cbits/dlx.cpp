@@ -160,6 +160,13 @@ item dlx::best_item() const noexcept {
   return best;
 }
 
+void dlx::reset() noexcept {
+  for (auto i=stack.size()-1;i >= 0;--i) unpick(stack[i]);
+  result.clear();
+  stack.clear();
+  current_state = state::guessing;
+}
+
 bool dlx::next(item * & results, int & nresults) noexcept {
   for (;;)
     switch (current_state) {

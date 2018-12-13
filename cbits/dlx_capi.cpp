@@ -20,4 +20,7 @@ extern "C" {
   int dlx_next(dlx * p, item ** results, int * nresults) {
      return p->next(*results,*nresults);
   }
+  void dlx_reset(dlx * p) {
+     p->reset();
+  }
 };
