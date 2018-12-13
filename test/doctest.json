@@ -1,5 +1,5 @@
 {
   "ignore": [],
   "sourceFolders": [ "src" ],
-  "doctestOptions": [ "-fobject-code" ]
+  "doctestOptions": [ "-fobject-code", "-odir=dist-doctest -hidir=dist-doctest" ]
 }
