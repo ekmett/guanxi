@@ -41,11 +41,14 @@ library
 
   -- C++ bits
   cxx-options: -std=c++11 -Wall -g
-  cxx-sources: cbits/dlx.cpp cbits/dlx_capi.cpp
+  cxx-sources:
+    cbits/dlx.cpp cbits/dlx_capi.cpp
+    cbits/dxz.cpp cbits/dxz_capi.cpp
   include-dirs: cbits
   extra-libraries: stdc++
 
   build-depends:
+    comonad,
     containers,
     contravariant,
     data-default,
@@ -62,7 +65,8 @@ library
     Aligned.Base
     Aligned.Free
     Aligned.Freer
-    Cover
+    Cover.DLX
+    Cover.DXZ
     FD.Monad
     FD.Var
     Key

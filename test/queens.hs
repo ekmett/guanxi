@@ -3,8 +3,9 @@
 
 module Main where
 
+import Control.Monad (unless)
 import Control.Monad.ST
-import Cover
+import Cover.DXZ
 import Data.Foldable
 import System.Exit
 
@@ -22,5 +23,7 @@ queens n = runST $ do
   count x
  
 main :: IO ()
-main | queens 12 == 14200 = exitSuccess
-     | otherwise = exitFailure
+main = do
+  let n = queens 12
+  print n
+  unless (n == 14200) exitFailure

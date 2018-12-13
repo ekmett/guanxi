@@ -1,0 +1,3 @@
+#!/bin/bash
+fast-tags -R src test
+ctags -a -R cbits

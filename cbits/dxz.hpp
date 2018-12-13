@@ -17,18 +17,17 @@ using namespace std;
 typedef uint32_t zdd;
 
 struct zdd_node {
-  union {
-    struct {
-      uint64_t label : 12, lo : 26, hi : 26;
-    };
-    uint64_t value;
-  };
+  uint64_t value;
   zdd_node() noexcept : value(0) {}
   zdd_node(zdd_node && rhs) noexcept : value(std::move(rhs.value)) {}
   zdd_node(const zdd_node & rhs) noexcept : value(rhs.value) {}
   zdd_node(option label, zdd lo, zdd hi) noexcept
-    : label(label), lo(lo), hi(hi) {}
-  
+  : value(
+     (static_cast<uint64_t>(label) << 52) |
+     (static_cast<uint64_t>(lo) << 26) |
+     static_cast<uint64_t>(hi)
+  ) {}
+
   bool operator == (const zdd_node & rhs) const noexcept {
     return value == rhs.value;
   }
@@ -86,7 +85,7 @@ struct dxz {
   zdd_node decode(zdd z) const noexcept { return heap[z]; }
 
 private:
-  
+
   template <typename Fn> option for_option_containing(link cell, Fn f) noexcept;
   template <typename Fn> void for_option_containing_exclusive(link cell, Fn f) noexcept;
 
@@ -102,7 +101,7 @@ private:
 // implementation details
 // --------------------------------------------------------------------------------
 
-template <typename Fn> 
+template <typename Fn>
 void dxz::for_option_containing_exclusive(link cell, Fn f) noexcept {
   auto parity = cells[cell].parity;
   auto i=cell-1;
@@ -116,7 +115,7 @@ void dxz::for_option_containing_exclusive(link cell, Fn f) noexcept {
 }
 
   // returns row# of the row containing the cell
-template <typename Fn> 
+template <typename Fn>
 option dxz::for_option_containing(link cell, Fn f) noexcept {
   auto parity = cells[cell].parity;
   auto i=cell;

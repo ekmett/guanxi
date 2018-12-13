@@ -1,7 +1,8 @@
 .depend
 dist
 dist-newstyle
-cbits/queens
+cbits/dlx_queens
+cbits/dxz_queens
 cbits/.depend
 docs
 old

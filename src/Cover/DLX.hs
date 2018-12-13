@@ -8,7 +8,7 @@
 {-# language ViewPatterns #-}
 {-# language FlexibleInstances #-}
 
-module Cover
+module Cover.DLX
   ( Cover
   , newCover, newCover_
   , addItems
