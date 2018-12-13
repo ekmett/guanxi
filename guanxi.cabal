@@ -36,6 +36,13 @@ common base
 library
   import: base
   hs-source-dirs: src
+
+  -- C++ bits
+  cxx-options: -std=c++11 -Wall -g
+  cxx-sources: cbits/dlx.cpp cbits/dlx_capi.cpp
+  include-dirs: cbits
+  extra-libraries: stdc++
+
   build-depends:
     containers,
     contravariant,
@@ -53,6 +60,7 @@ library
     Aligned.Base
     Aligned.Free
     Aligned.Freer
+    Cover
     FD.Monad
     FD.Var
     Key
