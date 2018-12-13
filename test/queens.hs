@@ -12,7 +12,7 @@ import System.Exit
 
 queens :: Int -> Int
 queens n = runST $ do
-  x <- newCover 0 0
+  x <- newCover_
   rows <- addItems x n
   cols <- addItems x n
   diag1 <- addOptionalItems x (n+n)

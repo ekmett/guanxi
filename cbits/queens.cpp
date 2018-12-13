@@ -2,7 +2,7 @@
 #include <iostream>
 #include "dlx.hpp"
 
-void queens(uint32_t n) {
+int queens(uint32_t n) {
   dlx x;
   auto rows = x.add_items(n);
   auto cols = x.add_items(n);
@@ -27,6 +27,7 @@ void queens(uint32_t n) {
       x.add_option(option.begin(),option.end());
     }
   }
+/*
   x.solve([&](const std::vector<uint32_t> & is) {
     bool first = true;
     for (auto i : is) {
@@ -36,10 +37,13 @@ void queens(uint32_t n) {
     }
     std::cout << '\n';
   });
+*/
+  return x.count();
 }
 
 int main(int argc, char ** argv) {
   int n = argc < 2 ? 8 : atoi(argv[1]);
-  if (n >= 1) queens(n);
+  if (n >= 1)
+    std::cout << queens(n) << "\n";
 }
 

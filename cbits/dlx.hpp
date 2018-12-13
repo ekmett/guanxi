@@ -56,7 +56,9 @@ struct dlx {
 
   bool next(item * & results, int & nresults) noexcept;
 
-  void reset() noexcept;
+  void reset() noexcept; // reset so that next starts from the start
+
+  int count() noexcept; // count the solutions
 
   template <typename Fn> void solve(Fn f);
 
@@ -119,12 +121,10 @@ void dlx::solve(Fn f) {
   auto candidate = cells[header].d;
   while (candidate != header) {
     auto row = pick(candidate);
-    if (row) {
-      result.emplace_back(row);
-      solve(f);
-      result.pop_back();
-      unpick(row);
-    }
+    result.emplace_back(row);
+    solve(f);
+    result.pop_back();
+    unpick(row);
     candidate = cells[candidate].d;
   }
 }

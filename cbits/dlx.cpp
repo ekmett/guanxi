@@ -213,3 +213,18 @@ bool dlx::next(item * & results, int & nresults) noexcept {
       }
     }
 }
+
+int dlx::count() noexcept {
+  auto item = best_item();
+  if (item == root()) return 1;
+  auto header = items[item].cell;
+  auto candidate = cells[header].d;
+  int n = 0;
+  while (candidate != header) {
+    auto row = pick(candidate);
+    n += count();
+    unpick(row);
+    candidate = cells[candidate].d;
+  }
+  return n;
+}
