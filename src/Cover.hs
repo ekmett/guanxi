@@ -96,6 +96,19 @@ each d = next d >>= \case
   Just xs -> pure xs <|> each d
 
 -- NB: this "consumes" the cover. You can't use it until solve is finished.
+--
+-- >>> x <- newCover 4 0
+-- >>> addOption x [0,1]
+-- 4
+-- >>> addOption x [2,3]
+-- 6
+-- >>> addOption x [0,3]
+-- 8
+-- >>> addOption x [1,2]
+-- 10
+-- >>> solve x print
+-- [4,6]
+-- [8,10]
 solve :: HasCover m s => s -> ([Item] -> m ()) -> m ()
 solve d f = next d >>= \case
   Nothing -> pure ()

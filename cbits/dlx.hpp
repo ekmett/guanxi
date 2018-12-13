@@ -29,7 +29,7 @@ struct item_info {
 };
 
 enum class state {
-  done, guessing, backtracking
+  guessing, backtracking
 };
 
 struct dlx {

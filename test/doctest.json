@@ -1,4 +1,5 @@
 {
   "ignore": [],
-  "sourceFolders": ["src"]
+  "sourceFolders": [ "src" ],
+  "doctestOptions": [ "-fobject-code" ]
 }

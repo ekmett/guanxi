@@ -16,6 +16,7 @@ iterator :: MonadPrompt m => ((a -> m ()) -> m ()) -> m (Iterator m a)
 iterator loop = reset $ \p -> Done <$ loop (\a -> shift p $ \k -> return $ Iterator a $ k ())
 
 -- |
+-- >>> import Prompt.Iterator
 -- >>> import Prompt.Reflection
 -- >>> runPrompt test
 -- [1,2,2,3,3,3,4,4,4,4,5,5,5,5,5]

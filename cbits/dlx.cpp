@@ -170,9 +170,9 @@ void dlx::reset() noexcept {
 bool dlx::next(item * & results, int & nresults) noexcept {
   for (;;)
     switch (current_state) {
-    case state::done:
-      current_state = state::guessing;
-      return false;
+    //case state::done:
+    //  current_state = state::guessing;
+    //  return false;
 
     case state::guessing:
       {
