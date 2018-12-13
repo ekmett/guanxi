@@ -55,11 +55,17 @@ item dlx::add_items(uint32_t k) {
   uint32_t i = 0;
   for (;i<k;++i) {
     cells.emplace_back(parity,itembase+i,cellbase+i,cellbase+i);
-    items.emplace_back(i ? itembase+(i+k-1)%k : itembase+k, itembase+(i+1)%k, cellbase+i, 0);
+    items.emplace_back(
+      i ? itembase+(i+k-1)%k : itembase+k,
+      itembase+(i+1)%k,
+      cellbase+i,
+      0
+    );
   }
   items.emplace_back(was_empty ? itembase+k-1 : items[n].p, itembase, 0, 0);
   if (!was_empty) {
     items[n].p = itembase+k-1;
+    items[p].n = itembase+k;
     items[itembase+k-1].n = n;
   } else {
     items[itembase+k-1].n = itembase+k;
@@ -163,7 +169,7 @@ bool dlx::next(item * & results, int & nresults) noexcept {
 
     case state::guessing:
       {
-        int best = best_item();
+        item best = best_item();
         if (best == root()) {
           current_state = state::done;
           results = result.data();
@@ -182,7 +188,7 @@ bool dlx::next(item * & results, int & nresults) noexcept {
       }
     case state::backtracking:
       if (stack.size() == 0) {
-        current_state == state::guessing;
+        current_state = state::guessing;
         return false;
       } else {
         auto bad_choice = stack[stack.size()-1];
@@ -191,7 +197,6 @@ bool dlx::next(item * & results, int & nresults) noexcept {
         stack.pop_back();
         result.pop_back();
         auto header = items[bad.item].cell;
-        auto next_choice = bad.d;
         if (bad.d != header) {
           stack.emplace_back(bad.d);
           result.emplace_back(pick(bad.d));

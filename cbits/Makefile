@@ -26,4 +26,4 @@ queens: queens.o dlx.o
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o queens $^ $(LDLIBS)
 
 %.o: %.cpp
-	$(CC) $(CPPFLAGS) -c $<
+	$(CC) $(CXXFLAGS) -c $<
