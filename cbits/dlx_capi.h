@@ -29,6 +29,7 @@ extern option dlx_add_option(dlx *, item *, int);
 extern int dlx_next(dlx *, item **, int *);
 
 extern void dlx_reset(dlx *);
+extern int dlx_count(dlx *);
 
 #ifdef __cplusplus
 }

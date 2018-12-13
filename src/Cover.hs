@@ -17,6 +17,7 @@ module Cover
   , each
   , solve
   , reset
+  , count
   ) where
 
 import Control.Applicative
@@ -50,6 +51,7 @@ foreign import ccall unsafe "dlx_capi.h dlx_add_optional_items" c_add_optional_i
 foreign import ccall unsafe "dlx_capi.h dlx_add_option" c_add_option :: Ptr DLX -> Ptr Item -> Word32 -> IO Option
 foreign import ccall unsafe "dlx_capi.h dlx_next" c_next :: Ptr DLX -> Ptr (Ptr Item) -> Ptr Word32 -> IO CInt
 foreign import ccall unsafe "dlx_capi.h dlx_reset" c_reset :: Ptr DLX -> IO ()
+foreign import ccall unsafe "dlx_capi.h dlx_count" c_count :: Ptr DLX -> IO CInt
 
 newCover :: PrimMonad m => Int -> Int -> m (Cover m)
 newCover n k = unsafeIOToPrim $ do
@@ -97,6 +99,9 @@ each :: (HasCover m s, Alternative m) => s -> m [Int]
 each d = next d >>= \case
   Nothing -> empty
   Just xs -> pure xs <|> each d
+
+count :: HasCover m s => s -> m Int
+count d = withCover d (fmap fromIntegral . c_count)
 
 -- NB: this "consumes" the cover. You can't use it until solve is finished.
 --

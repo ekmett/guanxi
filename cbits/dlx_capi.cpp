@@ -23,4 +23,7 @@ extern "C" {
   void dlx_reset(dlx * p) {
      p->reset();
   }
+  int dlx_count(dlx * p) {
+     return p->count();
+  }
 };
