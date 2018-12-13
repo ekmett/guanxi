@@ -1,5 +1,7 @@
 dist
 dist-newstyle
+cbits/queens
+cbits/.depend
 docs
 old
 wiki
