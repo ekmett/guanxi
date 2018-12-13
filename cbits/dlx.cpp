@@ -1,302 +1,203 @@
-#include <algorithm>
-#include <vector>
-#include <cstdint>
-#include <map>
-#include <iostream>
-#include <assert.h>
+#include "dlx.hpp"
 
 // compute exact covers using dancing links
 
 using namespace std;
 
-typedef uint32_t option;
-typedef uint32_t item;
-typedef uint32_t link;
-
-struct cell {
-  uint32_t parity:1, item:31, u, d;
-  cell(uint32_t parity=0, uint32_t item=0, link u=0, link d=0)
-  : parity(parity), item(item), u(u), d(d) {}
-};
-
-struct item_info {
-  uint32_t p, n, cell, count;
-  item_info(item p=0, item n=0, link cell=0, uint32_t count=0)
-  : p(p), n(n), cell(cell), count(count) {}
-};
-
-struct dlx {
-  std::vector<cell> cells;
-  std::vector<item_info> items;
-  std::vector<option> result; // rows
-
-  dlx(uint32_t n=0, uint32_t k=0) noexcept
+dlx::dlx(uint32_t n, uint32_t k) noexcept
   : cells(0)
   , items(0)
-  , result(0) {
-    uint32_t N = n+k;
-    cells.reserve(N?N+1:2);
-    items.reserve(N+1);
+  , result(0)
+  , current_state(state::guessing) {
+  uint32_t N = n+k;
+  cells.reserve(N?N+1:2);
+  items.reserve(N+1);
 
-    for (uint32_t i=0;i<n;++i) {
-      cells.emplace_back(1,i,i,i);
-      items.emplace_back((i+n-1)%n, (i+1)%n, i, 0);
-    }
-
-    for (uint32_t i=n;i<N;++i) {
-      cells.emplace_back(1,i,i,i);
-      items.emplace_back(i,i,i,0);
-    }
-
-    cells.emplace_back(0); // terminating sentinel
-
-    if (n) {
-      items.emplace_back(n-1,0);
-      items[0].p = items[n-1].n = N;
-    } else {
-      items.emplace_back(N,N);
-    }
+  for (uint32_t i=0;i<n;++i) {
+    cells.emplace_back(1,i,i,i);
+    items.emplace_back((i+n-1)%n, (i+1)%n, i, 0);
   }
 
-  // dynamically add k items to the problem that must be satisfied
-	// but can only be satisfied once
-  item add_items(uint32_t k) {
-    if (!k) return items.size()-1; // how many items do we have
-
-    auto cellbase = cells.size()-1;
-    auto parity = cells[cellbase].parity;
-    auto itembase = items.size()-1;
-    auto p = items[itembase].p; // grab old root prev
-    auto n = items[itembase].n; // grab old root next
-
-    items[p].n = n; // unlink root
-		items[n].p = p;
-
-    bool was_empty = n == itembase;
-
-    cells.pop_back();
-    items.pop_back();
-
-    uint32_t i = 0;
-    for (;i<k;++i) {
-      cells.emplace_back(parity,itembase+i,cellbase+i,cellbase+i);
-      items.emplace_back(i ? itembase+(i+k-1)%k : itembase+k, itembase+(i+1)%k, cellbase+i, 0);
-		}
-    items.emplace_back(was_empty ? itembase+k-1 : items[n].p, itembase, 0, 0);
-    if (!was_empty) {
-      items[n].p = itembase+k-1;
-      items[itembase+k-1].n = n;
-		} else {
-			items[itembase+k-1].n = itembase+k;
-		}
-    cells.emplace_back(~parity);
-    return itembase;
-	}
-
-  // dynamically add k items to the problem that may be satisfied
-	// but can only be satisfied once
-  item add_optional_items(uint32_t k) {
-    if (!k) return items.size()-1; // how many items do we have
-    auto cellbase = cells.size()-1;
-    auto parity = cells[cellbase].parity;
-    cells.pop_back();
-    auto itembase = items.size()-1;
-    auto p = items[itembase].p; // grab old root prev
-		if (p == itembase) p = itembase + k;
-    auto n = items[itembase].n; // grab old root next
-		if (n == itembase) n = itembase + k;
-    items.pop_back();
-    uint32_t i = 0;
-    for (;i<k;++i) {
-      cells.emplace_back(parity,itembase+i,cellbase+i,cellbase+i);
-      items.emplace_back(itembase+i, itembase+i, cellbase+i,0);
-		}
-    items.emplace_back(p, n, 0, 0);
-    cells.emplace_back(~parity);
-	  items[p].n = itembase+i;
-    items[n].p = itembase+i;
-    return itembase;
-	}
-
-  // add an option to the
-  template <typename Iterator>
-  option add_option(Iterator first, Iterator last) {
-    auto base = cells.size()-1;
-    auto parity = cells[base].parity;
-    cells.pop_back(); // drop terminating sentinel
-    uint32_t i = 0;
-    for (Iterator it = first; it != last; ++it) {
-      item j = *it;
-      assert(j < items.size()-1); // exclude root
-      auto u = cells[j].u;
-      cells.emplace_back(parity,j,u,j);
-      cells[u].d = cells[j].u = base + i++;
-      ++items[cells[j].item].count; // bump counts of the items
-    }
-    cells.emplace_back(!parity);
-    return base;
+  for (uint32_t i=n;i<N;++i) {
+    cells.emplace_back(1,i,i,i);
+    items.emplace_back(i,i,i,0);
   }
 
-  template <typename T>
-  option add_option(T values) {
-    return add_option(values.begin(),values.end());
-  }
+  cells.emplace_back(0); // terminating sentinel
 
-  option add_option(std::initializer_list<item> values) noexcept {
-    return add_option(values.begin(),values.end());
+  if (n) {
+    items.emplace_back(n-1,0);
+    items[0].p = items[n-1].n = N;
+  } else {
+    items.emplace_back(N,N);
   }
+}
 
-private:
-  
-  template <typename Fn> 
-  void for_option_containing_exclusive(link cell, Fn f) noexcept {
-    auto parity = cells[cell].parity;
-    auto i=cell-1;
-    if (parity) {
-      for (;cells[i].parity;--i) f(i);
-      for (i=cell+1;cells[i].parity;++i) f(i);
-    } else {
-      for (;!cells[i].parity;--i) f(i);
-      for (i=cell+1;!cells[i].parity;++i) f(i);
-    }
+// dynamically add k items to the problem that must be satisfied
+// but can only be satisfied once
+item dlx::add_items(uint32_t k) {
+  if (!k) return items.size()-1; // how many items do we have
+
+  auto cellbase = cells.size()-1;
+  auto parity = cells[cellbase].parity;
+  auto itembase = items.size()-1;
+  auto p = items[itembase].p; // grab old root prev
+  auto n = items[itembase].n; // grab old root next
+
+  items[p].n = n; // unlink root
+  items[n].p = p;
+
+  bool was_empty = n == itembase;
+
+  cells.pop_back();
+  items.pop_back();
+
+  uint32_t i = 0;
+  for (;i<k;++i) {
+    cells.emplace_back(parity,itembase+i,cellbase+i,cellbase+i);
+    items.emplace_back(i ? itembase+(i+k-1)%k : itembase+k, itembase+(i+1)%k, cellbase+i, 0);
   }
-
-  // returns row# of the row containing the cell
-  template <typename Fn> 
-  option for_option_containing(link cell, Fn f) noexcept {
-    auto parity = cells[cell].parity;
-    auto i=cell;
-    option option_id=0;
-    if (parity) {
-      for (;cells[i].parity;--i) f(i);
-      option_id = i+1;
-      for (i=cell+1;cells[i].parity;++i) f(i);
-    } else {
-      for (;!cells[i].parity;--i) f(i);
-      option_id = i+1;
-      for (i=cell+1;!cells[i].parity;++i) f(i);
-    }
-    return option_id; // ok
+  items.emplace_back(was_empty ? itembase+k-1 : items[n].p, itembase, 0, 0);
+  if (!was_empty) {
+    items[n].p = itembase+k-1;
+    items[itembase+k-1].n = n;
+  } else {
+    items[itembase+k-1].n = itembase+k;
   }
+  cells.emplace_back(~parity);
+  return itembase;
+}
 
-  option pick(link c) {
-    return for_option_containing(c, [&](link i) {
-      auto & x = cells[i];
-      auto & item = items[x.item];
-			auto header = item.cell;
-      items[item.n].p = item.p;
-      items[item.p].n = item.n;
-      for (auto j = x.u; j != header; j = cells[j].u)
-        for_option_containing_exclusive(j, [&](link k) {
-          auto & y = cells[k];
-          cells[y.u].d = y.d;
-          cells[y.d].u = y.u;
-        });
-      for (auto j = x.d; j != header; j = cells[j].d)
-        for_option_containing_exclusive(j, [&](link k) {
-          auto & y = cells[k];
-          cells[y.u].d = y.d;
-          cells[y.d].u = y.u;
-        });
-    });
+// dynamically add k items to the problem that may be satisfied
+// but can only be satisfied once
+item dlx::add_optional_items(uint32_t k) {
+  if (!k) return items.size()-1; // how many items do we have
+  auto cellbase = cells.size()-1;
+  auto parity = cells[cellbase].parity;
+  cells.pop_back();
+  auto itembase = items.size()-1;
+  auto p = items[itembase].p; // grab old root prev
+  if (p == itembase) p = itembase + k;
+  auto n = items[itembase].n; // grab old root next
+  if (n == itembase) n = itembase + k;
+  items.pop_back();
+  uint32_t i = 0;
+  for (;i<k;++i) {
+    cells.emplace_back(parity,itembase+i,cellbase+i,cellbase+i);
+    items.emplace_back(itembase+i, itembase+i, cellbase+i,0);
   }
+  items.emplace_back(p, n, 0, 0);
+  cells.emplace_back(~parity);
+  items[p].n = itembase+i;
+  items[n].p = itembase+i;
+  return itembase;
+}
 
-  void unpick(link c) {
-    for_option_containing(c, [&](link i) {
-      auto & x = cells[i];
-      auto & item = items[x.item];
-			auto header = item.cell;
-      items[item.n].p = x.item;
-      items[item.p].n = x.item;
-      for (auto j = x.u; j != header; j = cells[j].u)
-        for_option_containing_exclusive(j, [&](link k) {
-          auto & y = cells[k];
-          cells[y.u].d = k;
-          cells[y.d].u = k;
-        });
-      for (auto j = x.d; j != header; j = cells[j].d)
-        for_option_containing_exclusive(j, [&](link k) {
-          auto & y = cells[k];
-          cells[y.u].d = k;
-          cells[y.d].u = k;
-        });
-    });
-  }
+option dlx::add_option(std::initializer_list<item> values) noexcept {
+  return add_option(values.begin(),values.end());
+}
 
-  constexpr item root() const { return items.size()-1; }
-
-  item best_item() const {
-    item best = root();
-    uint32_t best_count = INT32_MAX;
-    for (item i = items[root()].n; i != root(); i = items[i].n) {
-       uint32_t count = items[i].count;
-       if (count < best_count) {
-         best_count = count;
-         best = i;
-       }
-    }
-    return best;
-  }
-
-public:
-  template <typename Fn>
-  void solve(Fn f) {
-    auto item = best_item();
-    if (item == root()) {
-      f((std::vector<uint32_t> const &)result); // otherwise the empty solution is a solution
-      return;
-    }
-    auto header = items[item].cell;
-    auto candidate = cells[header].d;
-    while (candidate != header) {
-      auto row = pick(candidate);
-      if (row) {
-        result.emplace_back(row);
-        solve(f);
-        result.pop_back();
-        unpick(row);
-      }
-      candidate = cells[candidate].d;
-    }
-  }
-};
-
-void queens(uint32_t n) {
-  auto x = dlx();
-	auto rows = x.add_items(n);
-  auto cols = x.add_items(n);
-  uint32_t nn = n+n-2;
-	auto diagonals1 = x.add_optional_items(nn);
-	auto diagonals2 = x.add_optional_items(nn);
-  // "organ pipe" order
-  auto organ = [=](int i) { return (i&1?n-1-i:n+i)>>1; };
-  std::vector<uint32_t> option;
-  for(uint8_t j=0;j<n;++j) {
-    option.resize(0);
-    int r = organ(j);
-    option.emplace_back(rows + r);
-    for (uint8_t k=0;k<n;++k) {
-      option.resize(1);
-			int c = organ(k);
-      option.emplace_back(cols + c);
-      uint8_t t = r+c;
-      if (t && t < nn) option.emplace_back(diagonals1+t);
-      t = n-1-r+c;
-      if (t && t < nn) option.emplace_back(diagonals2+t);
-      x.add_option(option.begin(),option.end());
-    }
-  }
-  x.solve([&](const std::vector<uint32_t> & is) {
-    bool first = true;
-    for (auto i : is) {
-      if (!first) std::cout << ' ';
-      std::cout << (x.cells[i].item-rows) << ',' << (x.cells[i+1].item-cols);
-      first = false;
-    }
-    std::cout << '\n';
+option dlx::pick(link c) noexcept {
+  return for_option_containing(c, [&](link i) {
+    auto & x = cells[i];
+    auto & item = items[x.item];
+    auto header = item.cell;
+    items[item.n].p = item.p;
+    items[item.p].n = item.n;
+    for (auto j = x.u; j != header; j = cells[j].u)
+      for_option_containing_exclusive(j, [&](link k) {
+        auto & y = cells[k];
+        cells[y.u].d = y.d;
+        cells[y.d].u = y.u;
+      });
+    for (auto j = x.d; j != header; j = cells[j].d)
+      for_option_containing_exclusive(j, [&](link k) {
+        auto & y = cells[k];
+        cells[y.u].d = y.d;
+        cells[y.d].u = y.u;
+      });
   });
 }
 
-int main(int argc, char ** argv) {
-  queens(12);
+void dlx::unpick(link c) noexcept {
+  for_option_containing(c, [&](link i) {
+    auto & x = cells[i];
+    auto & item = items[x.item];
+    auto header = item.cell;
+    items[item.n].p = x.item;
+    items[item.p].n = x.item;
+    for (auto j = x.u; j != header; j = cells[j].u)
+      for_option_containing_exclusive(j, [&](link k) {
+        auto & y = cells[k];
+        cells[y.u].d = k;
+        cells[y.d].u = k;
+      });
+    for (auto j = x.d; j != header; j = cells[j].d)
+      for_option_containing_exclusive(j, [&](link k) {
+        auto & y = cells[k];
+        cells[y.u].d = k;
+        cells[y.d].u = k;
+      });
+  });
+}
+
+item dlx::best_item() const noexcept {
+  item best = root();
+  uint32_t best_count = INT32_MAX;
+  for (item i = items[root()].n; i != root(); i = items[i].n) {
+     uint32_t count = items[i].count;
+     if (count < best_count) {
+       best_count = count;
+       best = i;
+     }
+  }
+  return best;
+}
+
+bool dlx::next(item * & results, int & nresults) noexcept {
+  for (;;)
+    switch (current_state) {
+    case state::done:
+      current_state = state::guessing;
+      return false;
+
+    case state::guessing:
+      {
+        int best = best_item();
+        if (best == root()) {
+          current_state = state::done;
+          results = result.data();
+          nresults = result.size();
+          return true;
+        }
+        auto header = items[best].cell;
+        auto candidate = cells[header].d;
+        if (candidate == header) {
+          current_state = state::backtracking;
+        } else {
+          stack.emplace_back(candidate);
+          result.emplace_back(pick(candidate));
+        }
+        break;
+      }
+    case state::backtracking:
+      if (stack.size() == 0) {
+        current_state == state::guessing;
+        return false;
+      } else {
+        auto bad_choice = stack[stack.size()-1];
+        unpick(bad_choice);
+        auto & bad = cells[bad_choice];
+        stack.pop_back();
+        result.pop_back();
+        auto header = items[bad.item].cell;
+        auto next_choice = bad.d;
+        if (bad.d != header) {
+          stack.emplace_back(bad.d);
+          result.emplace_back(pick(bad.d));
+          current_state = state::guessing;
+        }
+        break;
+      }
+    }
 }
