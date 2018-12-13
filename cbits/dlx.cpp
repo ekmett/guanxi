@@ -35,7 +35,7 @@ dlx::dlx(uint32_t n, uint32_t k) noexcept
 
 // dynamically add k items to the problem that must be satisfied
 // but can only be satisfied once
-item dlx::add_items(uint32_t k) {
+item dlx::add_items(uint32_t k) noexcept {
   if (!k) return items.size()-1; // how many items do we have
 
   auto cellbase = cells.size()-1;
@@ -76,7 +76,7 @@ item dlx::add_items(uint32_t k) {
 
 // dynamically add k items to the problem that may be satisfied
 // but can only be satisfied once
-item dlx::add_optional_items(uint32_t k) {
+item dlx::add_optional_items(uint32_t k) noexcept {
   if (!k) return items.size()-1; // how many items do we have
   auto cellbase = cells.size()-1;
   auto parity = cells[cellbase].parity;
@@ -104,20 +104,20 @@ option dlx::add_option(std::initializer_list<item> values) noexcept {
 }
 
 option dlx::pick(link c) noexcept {
-  return for_option_containing(c, [&](link i) {
+  return for_option_containing(c, [&](link i) noexcept {
     auto & x = cells[i];
     auto & item = items[x.item];
     auto header = item.cell;
     items[item.n].p = item.p;
     items[item.p].n = item.n;
     for (auto j = x.u; j != header; j = cells[j].u)
-      for_option_containing_exclusive(j, [&](link k) {
+      for_option_containing_exclusive(j, [&](link k) noexcept {
         auto & y = cells[k];
         cells[y.u].d = y.d;
         cells[y.d].u = y.u;
       });
     for (auto j = x.d; j != header; j = cells[j].d)
-      for_option_containing_exclusive(j, [&](link k) {
+      for_option_containing_exclusive(j, [&](link k) noexcept {
         auto & y = cells[k];
         cells[y.u].d = y.d;
         cells[y.d].u = y.u;
@@ -126,20 +126,20 @@ option dlx::pick(link c) noexcept {
 }
 
 void dlx::unpick(link c) noexcept {
-  for_option_containing(c, [&](link i) {
+  for_option_containing(c, [&](link i) noexcept {
     auto & x = cells[i];
     auto & item = items[x.item];
     auto header = item.cell;
     items[item.n].p = x.item;
     items[item.p].n = x.item;
     for (auto j = x.u; j != header; j = cells[j].u)
-      for_option_containing_exclusive(j, [&](link k) {
+      for_option_containing_exclusive(j, [&](link k) noexcept {
         auto & y = cells[k];
         cells[y.u].d = k;
         cells[y.d].u = k;
       });
     for (auto j = x.d; j != header; j = cells[j].d)
-      for_option_containing_exclusive(j, [&](link k) {
+      for_option_containing_exclusive(j, [&](link k) noexcept {
         auto & y = cells[k];
         cells[y.u].d = k;
         cells[y.d].u = k;

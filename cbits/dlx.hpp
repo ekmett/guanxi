@@ -41,9 +41,9 @@ struct dlx {
 
   dlx(std::uint32_t n=0, std::uint32_t k=0) noexcept;
 
-  item add_items(std::uint32_t k);
+  item add_items(std::uint32_t k) noexcept;
 
-  item add_optional_items(std::uint32_t k);
+  item add_optional_items(std::uint32_t k) noexcept;
 
   // add an option to the
   template <typename Iterator> option add_option(Iterator first, Iterator last);

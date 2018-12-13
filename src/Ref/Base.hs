@@ -74,7 +74,8 @@ readRef :: (PrimMonad m, Reference m a t) => t -> m a
 readRef = readMutVar . getRef . reference
 
 writeRef :: (MonadRef m, Reference m a t) => t -> a -> m ()
-writeRef (reference -> Ref r) a' = unwind ((,)()) (writeMutVar r) $ atomicModifyMutVar r $ \ a -> (a', a)
+writeRef (reference -> Ref r) a'
+  = unwind ((,)()) (writeMutVar r) $ atomicModifyMutVar r $ \ a -> (a', a)
 
 updateRef :: (MonadRef m, Reference m a t) => t -> (a -> (b, a)) -> m b
 updateRef (reference -> Ref r) f = unwind id (writeMutVar r) $ atomicModifyMutVar r $ \a@(f->(b,a'))->(a',(b,a))
