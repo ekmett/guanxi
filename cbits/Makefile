@@ -4,10 +4,10 @@ CXXFLAGS=-std=c++11 -Wall -g
 SRCS := $(shell find . -name "*.cpp")
 OBJS := $(patsubst %.cpp, %.o, $(SRCS))
 
-all: queens dlx_capi.o
+all: dxz_queens dlx_queens dlx_capi.o
 
 clean:
-	rm -f queens $(OBJS)
+	rm -f dlx_queens dxz_queens $(OBJS)
 
 dist-clean: clean
 	rm -f .depend
@@ -22,8 +22,11 @@ depend: .depend
 
 include .depend
 
-queens: queens.o dlx.o
-	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o queens $^ $(LDLIBS)
+dlx_queens: dlx_queens.o dlx.o
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o dlx_queens $^ $(LDLIBS)
+
+dxz_queens: dxz_queens.o dxz.o
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o dxz_queens $^ $(LDLIBS)
 
 %.o: %.cpp
 	$(CC) $(CXXFLAGS) -c $<
