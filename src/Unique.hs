@@ -1,7 +1,17 @@
 {-# language MagicHash #-}
 {-# language UnboxedTuples #-}
 
-module Unique where
+-- |
+-- Copyright :  (c) Edward Kmett 2018
+-- License   :  BSD-2-Clause OR Apache-2.0
+-- Maintainer:  Edward Kmett <ekmett@gmail.com>
+-- Stability :  experimental
+-- Portability: non-portable
+
+module Unique
+  ( Unique
+  , newUnique
+  ) where
 
 import Control.Monad.Primitive
 import Data.Hashable
