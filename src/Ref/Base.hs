@@ -50,6 +50,7 @@ unwind f mu na = na >>= \a -> case f a of
 
 -- | safely-backtracked mutvars
 newtype Ref m a = Ref { getRef :: MutVar (PrimState m) a }
+  deriving Eq
 
 instance TestCoercion (Ref m) where
   testCoercion (Ref s :: Ref m a) (Ref t)

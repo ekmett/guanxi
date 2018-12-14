@@ -1,6 +1,7 @@
 {-# language FlexibleInstances #-}
 {-# language FlexibleContexts #-}
 {-# language MultiParamTypeClasses #-}
+{-# language LambdaCase #-}
 
 -- |
 -- Copyright :  (c) Edward Kmett 2018
@@ -12,54 +13,45 @@
 -- Rem's interleaved algorithm for union-find.
 module Ref.Disjoint where
 
-{-
+import Control.Applicative (liftA2)
+
 import Ref.Base
 
-import Control.Lens
-import Control.Applicative (liftA2)
-import Control.Monad (unless)
-import Control.Monad.Primitive
-import Control.Monad.State.Class
-import Data.Function
+data Content m
+  = Root {-# unpack #-} !Int
+  | Child (Disjoint m)
 
+newtype Disjoint m = Disjoint { getDisjoint :: Ref m (Content m) }
+  deriving Eq
 
--- | (flipped) Rem's invariant: all pointers go to lower ids
--- This causes us to favor old IDs, that way when we allocate
--- fresh IDs we aren't constantly 'pulling' the pool of
--- equivalences into the new IDs.
+instance Reference m (Content m) (Disjoint m) where
+  reference = getDisjoint
 
--- this now requires us to be able to supply ids as rem ids aren't ordered
+-- return rank as well as result
+findEx :: MonadRef m => Disjoint m -> m (Int, Disjoint m)
+findEx d = readRef d >>= \case
+  Root i -> pure (i, d)
+  Child s -> do
+    x <- findEx s
+    x <$ writeRef d (Child $ snd x)
 
-newtype Rem m = Rem { runRem :: Ref m (Rem m) } deriving Eq
+find :: MonadRef m => Disjoint m -> m (Disjoint m)
+find d = readRef d >>= \case
+  Root _ -> pure d
+  Child s -> do
+    x <- find s
+    x <$ writeRef d (Child x)
 
-instance Reference m (Rem m) (Rem m) where
-  reference = runRem
+union :: MonadRef m => Disjoint m -> Disjoint m -> m ()
+union m n = do
+  (mrank,mroot) <- findEx m
+  (nrank,nroot) <- findEx n
+  case compare mrank nrank of
+    LT -> writeRef mroot $ Child nroot
+    GT -> writeRef nroot $ Child mroot
+    EQ -> do
+      writeRef mroot $ Child nroot
+      writeRef nroot $ Root (nrank+1)
 
-newRem :: PrimState m => m (Rem (PrimState m))
-newRem = Rem <$> newSelfRef Rem
-
-eq :: MonadRef m => Rem m -> Rem m -> m Bool
-eq = liftA2 (==) `on` find -- this could be smarter
-
--- | find with path splitting
-find :: MonadRef m => Rem m -> m (Rem m)
-find x = do
-  n <- readRef x
-  if n == x then pure x else do -- path splitting
-    readRef n >>= writeRef x
-    find n
-
--- | RemSP(x,y)
-union :: MonadRef m => Rem m -> Rem m -> m ()
-union x y = do
-  px <- readRef x
-  py <- readRef y
-  case compare px py of
-    EQ -> pure ()
-    LT -> do
-      ref y .= px
-      unless (y == py) $ union x py
-    GT -> do
-      ref x .= py
-      unless (x == px) $ union px y
--}
+eq :: MonadRef m => Disjoint m -> Disjoint m -> m Bool
+eq m n = liftA2 (==) (find m) (find n)
