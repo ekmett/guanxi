@@ -1,4 +1,3 @@
-{-# language DefaultSignatures #-}
 {-# language TypeOperators #-}
 {-# language TypeFamilies #-}
 {-# language FlexibleContexts #-}

@@ -3,7 +3,6 @@
 {-# language UndecidableInstances #-}
 {-# language DefaultSignatures #-}
 {-# language FlexibleContexts #-}
-{-# language LambdaCase #-}
 
 -- |
 -- Copyright :  (c) Edward Kmett 2018
@@ -39,7 +38,7 @@ instance (GShareable f, GShareable g) => GShareable (f :+: g) where
   gsharing f (R1 x) = R1 <$> gsharing f x
 
 instance (Shareable1 f, GShareable g) => GShareable (f :.: g) where
-  gsharing f (Comp1 x) = Comp1 <$> sharing1 (gsharing) f x
+  gsharing f (Comp1 x) = Comp1 <$> sharing1 gsharing f x
 
 class Shareable a where
   sharing
@@ -62,11 +61,11 @@ class Shareable1 f where
   sharing1
     :: MonadRef m
     => ((forall b. Shareable b => m b -> m (m b)) -> a -> m a)
-    -> (forall b. Shareable b => m b -> m (m b)) -> (f a) -> m (f a)
+    -> (forall b. Shareable b => m b -> m (m b)) -> f a -> m (f a)
   default sharing1
     :: (Generic1 f, Shareable1 (Rep1 f), MonadRef m)
     => ((forall b. Shareable b => m b -> m (m b)) -> a -> m a)
-    -> (forall b. Shareable b => m b -> m (m b)) -> (f a) -> m (f a)
+    -> (forall b. Shareable b => m b -> m (m b)) -> f a -> m (f a)
   sharing1 g f m = to1 <$> sharing1 g f (from1 m)
 
 instance Shareable c => Shareable1 (K1 i c) where

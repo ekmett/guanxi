@@ -53,7 +53,7 @@ makeClassy ''ParEnv
 statePar :: (Alternative m, MonadRef m) => Par m a -> StateT (ParEnv m) m a
 statePar (Par m) = StateT $ \s -> do
   r <- newRef Nothing
-  s' <- m (\ a s' -> s' <$ (writeRef r $ Just a)) s
+  s' <- m (\ a s' -> s' <$ writeRef r (Just a)) s
   readRef r >>= \case
     Nothing -> empty
     Just a -> pure (a, s')

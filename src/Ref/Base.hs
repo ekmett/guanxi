@@ -6,6 +6,7 @@
 {-# language LambdaCase #-}
 {-# language ScopedTypeVariables #-}
 {-# language Trustworthy #-}
+{-# language TupleSections #-}
 
 module Ref.Base
   ( memo
@@ -75,7 +76,7 @@ readRef = readMutVar . getRef . reference
 
 writeRef :: (MonadRef m, Reference m a t) => t -> a -> m ()
 writeRef (reference -> Ref r) a'
-  = unwind ((,)()) (writeMutVar r) $ atomicModifyMutVar r $ \ a -> (a', a)
+  = unwind ((),) (writeMutVar r) $ atomicModifyMutVar r (a',)
 
 updateRef :: (MonadRef m, Reference m a t) => t -> (a -> (b, a)) -> m b
 updateRef (reference -> Ref r) f = unwind id (writeMutVar r) $ atomicModifyMutVar r $ \a@(f->(b,a'))->(a',(b,a))
@@ -84,8 +85,8 @@ updateRef' :: (MonadRef m, Reference m a t) => t -> (a -> (b, a)) -> m b
 updateRef' (reference -> Ref r) f = unwind id (writeMutVar r) $ atomicModifyMutVar' r $ \a@(f->(b,a'))->(a',(b,a))
 
 modifyRef :: (MonadRef m, Reference m a t) => t -> (a -> a) -> m ()
-modifyRef (reference -> Ref r) f = unwind ((,)()) (writeMutVar r) $ atomicModifyMutVar r $ \a -> (f a,a)
+modifyRef (reference -> Ref r) f = unwind ((),) (writeMutVar r) $ atomicModifyMutVar r $ \a -> (f a,a)
 
 modifyRef' :: (MonadRef m, Reference m a t) => t -> (a -> a) -> m ()
-modifyRef' (reference -> Ref r) f = unwind ((,)()) (writeMutVar r) $ atomicModifyMutVar' r $ \a -> (f a,a)
+modifyRef' (reference -> Ref r) f = unwind ((),) (writeMutVar r) $ atomicModifyMutVar' r $ \a -> (f a,a)
 

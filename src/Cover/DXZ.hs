@@ -3,7 +3,6 @@
 {-# language MultiParamTypeClasses #-}
 {-# language FunctionalDependencies #-}
 {-# language MultiWayIf #-}
-{-# language LambdaCase #-}
 {-# language ScopedTypeVariables #-}
 {-# language ViewPatterns #-}
 {-# language FlexibleInstances #-}
