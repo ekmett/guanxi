@@ -9,7 +9,7 @@ cabal: "2.4"
 
 matrix:
   include:
-    - ghc: "8.6.3"  
+    - ghc: "8.6.3"
 
 install:
  - cabal --version
