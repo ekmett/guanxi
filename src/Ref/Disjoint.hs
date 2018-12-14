@@ -10,16 +10,18 @@
 -- Portability: non-portable
 --
 -- Rem's interleaved algorithm for union-find.
-module Ref.Rem where
+module Ref.Disjoint where
 
 {-
-import Back.Ref
+import Ref.Base
+
 import Control.Lens
 import Control.Applicative (liftA2)
 import Control.Monad (unless)
 import Control.Monad.Primitive
 import Control.Monad.State.Class
 import Data.Function
+
 
 -- | (flipped) Rem's invariant: all pointers go to lower ids
 -- This causes us to favor old IDs, that way when we allocate

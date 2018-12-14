@@ -80,11 +80,11 @@ library
     Par.Future
     Par.Promise
     Ref.Base
+    Ref.Disjoint
     Ref.Signal
     Ref.Sink
     Ref.Env
     Ref.Log
-    Ref.Rem
     Prompt.Class
     Prompt.Iterator
     Prompt.Reflection

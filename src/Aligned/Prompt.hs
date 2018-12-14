@@ -1,2 +1,0 @@
-module Aligned.Prompt where
-
