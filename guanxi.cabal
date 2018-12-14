@@ -81,7 +81,7 @@ library
     Par.Class
     Par.Future
     Par.Promise
-    Ref.Base
+    Ref
     Ref.Disjoint
     Ref.Signal
     Ref.Sink

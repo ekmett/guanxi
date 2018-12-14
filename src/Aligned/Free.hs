@@ -20,7 +20,7 @@ import Control.Arrow (Kleisli(..))
 import Control.Monad (ap, liftM, guard, join)
 import Control.Category
 import Prelude hiding ((.),id)
-import Ref.Base
+import Ref
 import Unification.Class
 
 

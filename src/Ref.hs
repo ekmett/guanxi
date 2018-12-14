@@ -8,7 +8,7 @@
 {-# language Trustworthy #-}
 {-# language TupleSections #-}
 
-module Ref.Base
+module Ref
   ( memo
   , unwind
   , MonadRef, Ref, Reference(..)

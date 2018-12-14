@@ -1,7 +1,7 @@
 {-# language FlexibleInstances #-}
 {-# language FlexibleContexts #-}
 {-# language MultiParamTypeClasses #-}
-{-# language LambdaCase #-}
+{-# language LambdaCase #-} 
 
 -- |
 -- Copyright :  (c) Edward Kmett 2018
@@ -10,12 +10,12 @@
 -- Stability :  experimental
 -- Portability: non-portable
 --
--- Rem's interleaved algorithm for union-find.
+-- disjoint set forests with path-compression providing
+-- a theory of equality without disequality constraints
 module Ref.Disjoint where
 
 import Control.Applicative (liftA2)
-
-import Ref.Base
+import Ref
 
 data Content m
   = Root {-# unpack #-} !Int
@@ -53,5 +53,6 @@ union m n = do
       writeRef mroot $ Child nroot
       writeRef nroot $ Root (nrank+1)
 
+-- | check if currently equal
 eq :: MonadRef m => Disjoint m -> Disjoint m -> m Bool
 eq m n = liftA2 (==) (find m) (find n)

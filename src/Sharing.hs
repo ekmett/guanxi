@@ -16,7 +16,7 @@
 module Sharing where
 
 import GHC.Generics
-import Ref.Base
+import Ref
 
 class GShareable f where
   gsharing

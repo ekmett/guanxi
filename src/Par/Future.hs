@@ -14,7 +14,7 @@ module Par.Future
 import Control.Monad.State
 import Par.Class
 import Par.Promise
-import Ref.Base
+import Ref
 import Ref.Signal
 
 newtype Future m a = Future (Promise m a)

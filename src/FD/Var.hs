@@ -23,7 +23,7 @@ import Control.Monad.State.Class
 import Data.Set as Set
 import Data.Type.Coercion
 import Logic.Class
-import Ref.Base
+import Ref
 import Ref.Signal
 
 -- finite domains represented as intersection sets with

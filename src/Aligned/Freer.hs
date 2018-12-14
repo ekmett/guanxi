@@ -21,7 +21,7 @@ import Control.Monad (ap, liftM, guard, join)
 import Control.Category
 import Data.Functor 
 import Prelude hiding ((.),id)
-import Ref.Base
+import Ref
 import Unification.Class
 
 data Free f a where

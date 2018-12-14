@@ -30,7 +30,7 @@ import Control.Lens
 import Data.FingerTree as F
 import Data.Foldable as Foldable
 import Prelude hiding (log)
-import Ref.Base
+import Ref
 
 -- version # since, ref count, monoidal summary
 data LogEntry a = LogEntry

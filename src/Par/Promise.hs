@@ -19,8 +19,8 @@ import Data.Foldable (traverse_)
 import Data.Maybe
 import Data.Proxy
 import Par.Class
+import Ref
 import Ref.Signal
-import Ref.Base
 
 data Promise m a = Promise
   { _promiseVal :: Ref m (Maybe a)

@@ -37,7 +37,7 @@ import Data.Default
 import Logic.Class
 import Par.Class
 import Prelude hiding (fail)
-import Ref.Base
+import Ref
 import Unaligned.Base
 
 type Task m = ParEnv m -> m (ParEnv m)

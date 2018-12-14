@@ -28,7 +28,7 @@ import Data.Foldable (for_)
 import Data.Function (on)
 import Data.Hashable
 import Data.HashSet as HS
-import Ref.Base
+import Ref
 import Unique
 
 data Content m
