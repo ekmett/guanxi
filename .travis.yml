@@ -19,3 +19,11 @@ script:
  - cabal v2-update
  - cabal v2-build
  - cabal v2-test --enable-test
+
+notifications:
+  irc:
+    channels:
+      - "irc.freenode.org##haskell-lens"
+    skip_join: true
+    template:
+      - "\x0313guanxi\x0f/\x0306%{branch}\x0f \x0314%{commit}\x0f %{message} \x0302\x1f%{build_url}\x0f"
