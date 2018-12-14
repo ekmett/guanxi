@@ -1,7 +1,7 @@
 guanxi
-============
+======
 
-[![Hackage](https://img.shields.io/hackage/v/guanxi.svg)](https://hackage.haskell.org/package/guanxi) [![Build Status](https://secure.travis-ci.org/ekmett/guanxi.png?branch=master)](http://travis-ci.org/ekmett/guanxi)
+[![Travis Continuous Integration Status][travis-img]][travis]
 
 An exploration of relational programming in Haskell.
 
@@ -9,8 +9,8 @@ License
 -------
 
 [Licensed](LICENSE.md) under either of
- * Apache License, Version 2.0 (http://www.apache.org/licenses/LICENSE-2.0)
- * BSD 2-Clause license (https://opensource.org/licenses/BSD-2-Clause)
+ * [Apache License, Version 2.0][license-apache]
+ * [BSD 2-Clause license][license-bsd]
 at your option.
 
 Contribution
@@ -28,3 +28,8 @@ Contributions and bug reports are welcome!
 Please feel free to contact me through github or on the `#haskell` IRC channel on `irc.freenode.net`.
 
 -Edward Kmett
+
+ [license-apache]: http://www.apache.org/licenses/LICENSE-2.0
+ [license-bsd]: https://opensource.org/licenses/BSD-2-Clause
+ [travis]: http://travis-ci.org/ekmett/guanxi
+ [travis-img]: https://secure.travis-ci.org/ekmett/guanxi.png?branch=master
