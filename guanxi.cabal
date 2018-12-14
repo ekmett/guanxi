@@ -40,7 +40,7 @@ library
   hs-source-dirs: src
 
   -- C++ bits
-  cxx-options: -std=c++11 -Wall -g
+  cxx-options: -std=c++14 -Wall -g
   cxx-sources:
     cbits/dlx.cpp cbits/dlx_capi.cpp
     cbits/dxz.cpp cbits/dxz_capi.cpp
