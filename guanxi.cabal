@@ -53,6 +53,7 @@ library
     contravariant,
     data-default,
     fingertree,
+    ghc-prim,
     hashable,
     lens,
     mtl                 >= 2.2.2 && < 2.3,
@@ -93,6 +94,7 @@ library
     Unaligned.Base
     Unaligned.Internal
     Unification.Class
+    Unique
 
 --------------------------------------------------------
 -- * Tests
