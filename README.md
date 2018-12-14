@@ -9,8 +9,11 @@ License
 -------
 
 [Licensed](LICENSE.md) under either of
+
  * [Apache License, Version 2.0][license-apache]
+
  * [BSD 2-Clause license][license-bsd]
+
 at your option.
 
 Contribution
