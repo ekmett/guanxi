@@ -57,7 +57,7 @@ item dxz::add_items(uint32_t k) noexcept {
 
   uint32_t i = 0;
   for (;i<k;++i) {
-    item_mask.emplace_back(true);
+    item_mask.push_back(true);
     cells.emplace_back(parity,itembase+i,cellbase+i,cellbase+i);
     items.emplace_back(
       i ? itembase+(i+k-1)%k : itembase+k,
@@ -93,7 +93,7 @@ item dxz::add_optional_items(uint32_t k) noexcept {
   items.pop_back();
   uint32_t i = 0;
   for (;i<k;++i) {
-    item_mask.emplace_back(true);
+    item_mask.push_back(true);
     cells.emplace_back(parity,itembase+i,cellbase+i,cellbase+i);
     items.emplace_back(itembase+i, itembase+i, cellbase+i,0);
   }

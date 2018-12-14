@@ -9,20 +9,7 @@ cabal: "2.4"
 
 matrix:
   include:
-    - os: linux
-      env: GCC=/usr/bin/gcc-5
-      ghc: "8.6.3"
-      addons:
-        apt:
-          packages:
-            - g++-5
-          sources: &sources
-            - llvm-toolchain-precise-3.8
-            - ubuntu-toolchain-r-test
-
-before_install:
- - if [ "$TRAVIS_OS_NAME" == "linux" ]; then sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-5 60 --slave /usr/bin/g++ g++ /usr/bin/g++-5; fi
- - sudo update-alternatives --set gcc "$GCC"
+    - ghc: "8.6.3"
 
 install:
  - cabal --version
@@ -30,7 +17,6 @@ install:
 
 script:
  - cabal v2-update
- - cabal v2-configure
  - cabal v2-build
  - cabal v2-test --enable-test
 
