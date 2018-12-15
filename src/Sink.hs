@@ -1,13 +1,13 @@
 {-# language FlexibleInstances #-}
 {-# language MultiParamTypeClasses #-}
 
-module Ref.Sink where
+module Sink where
 
 import Control.Monad.State.Class
 import Data.Functor.Contravariant
 import Data.Functor.Contravariant.Divisible
 import Data.Void
-import Ref.Signal
+import Signal
 
 data Sink m a = Sink 
   { _cellIds    :: !(Signals m)

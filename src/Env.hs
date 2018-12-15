@@ -12,7 +12,7 @@
 -- Stability :  experimental
 -- Portability: non-portable
 
-module Ref.Env
+module Env
   ( Env
   , lookup
   , allocate

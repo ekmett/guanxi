@@ -68,11 +68,14 @@ library
     Aligned.Freer
     Cover.DLX
     Cover.DXZ
+    Disjoint
+    Env
     Equality
     FD.Monad
     FD.Var
     Key
     Key.Coercible
+    Log
     Logic.Class
     Logic.Cont
     Logic.Naive
@@ -82,15 +85,12 @@ library
     Par.Future
     Par.Promise
     Ref
-    Ref.Disjoint
-    Ref.Signal
-    Ref.Sink
-    Ref.Env
-    Ref.Log
+    Sink
     Prompt.Class
     Prompt.Iterator
     Prompt.Reflection
     Sharing
+    Signal
     Tactic
     Unaligned.Base
     Unaligned.Internal

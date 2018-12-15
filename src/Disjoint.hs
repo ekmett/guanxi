@@ -12,7 +12,7 @@
 --
 -- disjoint set forests with path-compression providing
 -- a theory of equality without disequality constraints
-module Ref.Disjoint where
+module Disjoint where
 
 import Control.Applicative (liftA2)
 import Ref

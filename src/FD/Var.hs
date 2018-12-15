@@ -24,7 +24,7 @@ import Data.Set as Set
 import Data.Type.Coercion
 import Logic.Class
 import Ref
-import Ref.Signal
+import Signal
 
 -- finite domains represented as intersection sets with
 -- propagators to establish generalized arc consistency,

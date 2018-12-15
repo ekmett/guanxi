@@ -27,17 +27,6 @@ int queens(uint32_t n) {
       x.add_option(option.begin(),option.end());
     }
   }
-/*
-  x.solve([&](const std::vector<uint32_t> & is) {
-    bool first = true;
-    for (auto i : is) {
-      if (!first) std::cout << ' ';
-      std::cout << (x.cells[i].item-rows) << ',' << (x.cells[i+1].item-cols);
-      first = false;
-    }
-    std::cout << '\n';
-  });
-*/
   return x.count();
 }
 

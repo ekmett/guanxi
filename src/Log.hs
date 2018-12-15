@@ -16,7 +16,7 @@
 -- Stability :  experimental
 -- Portability: non-portable
 
-module Ref.Log 
+module Log 
   ( 
   -- * Logs
     Log(..)

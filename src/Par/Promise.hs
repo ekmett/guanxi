@@ -20,7 +20,7 @@ import Data.Maybe
 import Data.Proxy
 import Par.Class
 import Ref
-import Ref.Signal
+import Signal
 
 data Promise m a = Promise
   { _promiseVal :: Ref m (Maybe a)

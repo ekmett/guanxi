@@ -27,7 +27,7 @@ import FD.Var
 import Logic.Class
 import Logic.Reflection as Reflection
 import Par.Cont as Cont
-import Ref.Signal
+import Signal
 
 type FD' s = StateT (SignalEnv (FD s)) (Reflection.LogicT (ST s))
 

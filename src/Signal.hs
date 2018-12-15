@@ -1,4 +1,5 @@
-{-# language AllowAmbiguousTypes #-} {-# language DefaultSignatures #-}
+{-# language AllowAmbiguousTypes #-}
+{-# language DefaultSignatures #-}
 {-# language FlexibleContexts #-}
 {-# language FlexibleInstances #-}
 {-# language ViewPatterns #-}
@@ -27,7 +28,7 @@
 -- Stability :  experimental
 -- Portability: non-portable
 
-module Ref.Signal
+module Signal
   ( Signal(..)
   , newSignal
   , newSignal_
@@ -50,7 +51,7 @@ import Data.Function (on)
 import Data.Kind
 import Data.Proxy
 import Data.Set as Set -- HashSet?
-import Ref.Env as Env
+import Env
 
 newtype Signals (m :: Type -> Type) = Signals { getSignals :: IntSet }
   deriving (Semigroup, Monoid)
