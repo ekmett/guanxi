@@ -1,0 +1,6 @@
+{
+        "files.exclude": {
+                "**/.depend": true,
+                "cbits/*_queens": true
+        }
+}
