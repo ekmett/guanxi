@@ -1,6 +1,12 @@
 {
         "files.exclude": {
+                ".ghc.environment*": true,
                 "**/.depend": true,
-                "cbits/*_queens": true
-        }
+                "**/*.o": true,
+                "cbits/*_queens": true,
+                "dist": true,
+                "dist-doctest": true,
+                "dist-newstyle": true
+        },
+        "editor.renderWhitespace": "boundary"
 }
