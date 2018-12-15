@@ -7,6 +7,6 @@
                 "dist": true,
                 "dist-doctest": true,
                 "dist-newstyle": true
-        },
-        "editor.renderWhitespace": "boundary"
+        }
+        
 }
