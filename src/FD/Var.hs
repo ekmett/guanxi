@@ -19,7 +19,6 @@ import Control.Applicative as A
 import Control.Lens
 import Control.Monad (join, when, guard)
 import Control.Monad.Primitive
-import Control.Monad.State.Class
 import Data.Set as Set
 import Data.Type.Coercion
 import Logic.Class
@@ -29,7 +28,7 @@ import Signal
 -- finite domains represented as intersection sets with
 -- propagators to establish generalized arc consistency,
 -- followed by a final concretization pass
-data FDVar m a = FDVar (Ref m (Set a)) (Signal m)
+data FDVar m a = FDVar (RefM m (Set a)) (Signal m)
 
 instance Eq (FDVar m a) where
   FDVar _ s == FDVar _ t = s == t
@@ -42,14 +41,13 @@ instance TestCoercion (FDVar m) where
 instance HasSignals m (FDVar m a) where
   signals (FDVar _ v) = signals v
 
-instance Reference m (Set a) (FDVar m a) where
+instance (s ~ PrimState m) => Reference s (Set a) (FDVar m a) where
   reference (FDVar r _) = r
 
+-- TODO: interleave isn't sound any more
 newFDVar
   :: ( MonadLogic m
-     , MonadRef m
-     , MonadState s m
-     , HasSignalEnv s m
+     , MonadSignal e m
      , Ord a
      ) => Set a -> m (FDVar m a)
 newFDVar dom = do
@@ -57,24 +55,25 @@ newFDVar dom = do
   let is_ v a = join $ updateRef rdom $ \ s -> (,Set.singleton a) $ when (Set.size s /= 1) $ fire v
   fmap (FDVar rdom) $ newSignal $ \v -> readRef rdom >>= Set.foldr (interleave . is_ v) A.empty
 
-val :: (MonadLogic m, PrimMonad m, MonadState s m, HasSignalEnv s m) => FDVar m a -> m a
+-- TODO: interleave isn't sound any more
+val :: (MonadLogic m, MonadSignal e m) => FDVar m a -> m a
 val r = do
   let is_ a = join $ updateRef r $ \ s -> (,Set.singleton a) $ a <$ when (Set.size s /= 1) (fire r)
   readRef r >>= Set.foldr (interleave . is_) A.empty
 
 -- unsafe
-shrink :: (MonadState s m, MonadRef m, HasSignalEnv s m) => FDVar m a -> (Set a -> Set a) -> m ()
+shrink :: MonadSignal e m => FDVar m a -> (Set a -> Set a) -> m ()
 shrink r f = join $ updateRef r $ \d@(f -> d') -> (,d') $ do
   guard $ not $ Set.null d' -- ensure there is an answer
   when (Set.size d' /= Set.size d) $ fire r
 
-is :: (MonadState s m, HasSignalEnv s m, MonadRef m, Ord a) => FDVar m a -> a -> m ()
+is :: (MonadSignal e m, Ord a) => FDVar m a -> a -> m ()
 is v a = shrink v $ \d -> if Set.member a d then Set.singleton a else Set.empty
 
-isn't :: (MonadState s m, HasSignalEnv s m, MonadRef m, Ord a) => FDVar m a -> a -> m ()
+isn't :: (MonadSignal e m, Ord a) => FDVar m a -> a -> m ()
 isn't v a = shrink v (Set.delete a)
 
-lt :: (MonadState s m, HasSignalEnv s m, MonadRef m, Ord a) => FDVar m a -> FDVar m a -> m ()
+lt :: (MonadSignal e m, Ord a) => FDVar m a -> FDVar m a -> m ()
 lt l r = do
   guard (l /= r)
   propagate l r $ readRef l >>= \ xs -> case Set.minView xs of

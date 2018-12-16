@@ -14,6 +14,7 @@
 
 module Equality
   ( Term
+  , TermM
   , newTerm
   , find -- current root
   , is
@@ -23,6 +24,7 @@ module Equality
 
 import Control.Applicative
 import Control.Monad
+import Control.Monad.Primitive
 import Control.Lens hiding (isn't)
 import Data.Foldable (for_)
 import Data.Function (on)
@@ -31,46 +33,48 @@ import Data.HashSet as HS
 import Ref
 import Unique
 
-data Content m
+data Content s
   = Root
     {-# unpack #-} !Int -- rank
-    !(HashSet (Term m)) -- roots of known-disjoint terms
-  | Child !(Term m)     -- parent
+    !(HashSet (Term s)) -- roots of known-disjoint terms
+  | Child !(Term s)     -- parent
 
-data Term m = Term
-  { equalityId       :: {-# unpack #-} !(Unique m)
-  , equalityReference :: {-# unpack #-} !(Ref m (Content m))
+data Term s = Term
+  { equalityId       :: {-# unpack #-} !(Unique s)
+  , equalityReference :: {-# unpack #-} !(Ref s (Content s))
   }
 
-instance Eq (Term m) where
+type TermM m = Term (PrimState m)
+
+instance Eq (Term s) where
   (==) = (==) `on` equalityId
 
-instance Hashable (Term m) where
+instance Hashable (Term s) where
   hash = hash . equalityId
   hashWithSalt d = hashWithSalt d . equalityId
 
-instance Reference m (Content m) (Term m) where
+instance Reference s (Content s) (Term s) where
   reference = equalityReference
 
-newTerm :: MonadRef m => m (Term m)
+newTerm :: MonadRef m => m (TermM m)
 newTerm = Term <$> newUnique <*> newRef (Root 0 mempty)
 
 -- returns rank and disjoint set as well as result
-findEx :: MonadRef m => Term m -> m (Int, HashSet (Term m), Term m)
+findEx :: MonadRef m => TermM m -> m (Int, HashSet (TermM m), TermM m)
 findEx d = readRef d >>= \case
   Root i xs -> pure (i, xs, d)
   Child s -> do
     x <- findEx s
     x <$ writeRef d (Child $ x^._3)
 
-find :: MonadRef m => Term m -> m (Term m)
+find :: MonadRef m => TermM m -> m (TermM m)
 find d = readRef d >>= \case
   Root{} -> pure d
   Child s -> do
     x <- find s
     x <$ writeRef d (Child x)
 
-is :: (MonadRef m, Alternative m) => Term m -> Term m -> m ()
+is :: MonadRef m => TermM m -> TermM m -> m ()
 is m n = do
   (mrank,notm,mroot) <- findEx m
   (nrank,notn,nroot) <- findEx n
@@ -89,7 +93,7 @@ is m n = do
       for_ notm $ \i -> modifyRef' i $ \(Root irank noti) -> Root irank $ HS.insert nroot $ HS.delete mroot noti
       writeRef nroot $ Root (nrank+1) $ notm <> notn
 
-isn't :: (MonadRef m, Alternative m) => Term m -> Term m -> m ()
+isn't :: MonadRef m => TermM m -> TermM m -> m ()
 isn't m n = do
   (mrank,notm,mroot) <- findEx m
   (nrank,notn,nroot) <- findEx n
@@ -98,7 +102,7 @@ isn't m n = do
   writeRef nroot $ Root nrank $ HS.insert mroot notn
 
 -- | ground out an equality relation
-decide :: (MonadRef m, Alternative m) => Term m -> Term m -> m Bool
+decide :: MonadRef m => TermM m -> TermM m -> m Bool
 decide m n
     = True <$ is m n
   <|> False <$ isn't m n

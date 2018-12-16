@@ -15,34 +15,37 @@
 module Disjoint where
 
 import Control.Applicative (liftA2)
+import Control.Monad.Primitive
 import Ref
 
-data Content m
+data Content s
   = Root {-# unpack #-} !Int
-  | Child (Disjoint m)
+  | Child (Disjoint s)
 
-newtype Disjoint m = Disjoint { getDisjoint :: Ref m (Content m) }
+newtype Disjoint s = Disjoint { getDisjoint :: Ref s (Content s) }
   deriving Eq
 
-instance Reference m (Content m) (Disjoint m) where
+type DisjointM m = Disjoint (PrimState m)
+
+instance Reference s (Content s) (Disjoint s) where
   reference = getDisjoint
 
 -- return rank as well as result
-findEx :: MonadRef m => Disjoint m -> m (Int, Disjoint m)
+findEx :: MonadRef m => DisjointM m -> m (Int, DisjointM m)
 findEx d = readRef d >>= \case
   Root i -> pure (i, d)
   Child s -> do
     x <- findEx s
     x <$ writeRef d (Child $ snd x)
 
-find :: MonadRef m => Disjoint m -> m (Disjoint m)
+find :: MonadRef m => DisjointM m -> m (DisjointM m)
 find d = readRef d >>= \case
   Root _ -> pure d
   Child s -> do
     x <- find s
     x <$ writeRef d (Child x)
 
-union :: MonadRef m => Disjoint m -> Disjoint m -> m ()
+union :: MonadRef m => DisjointM m -> DisjointM m -> m ()
 union m n = do
   (mrank,mroot) <- findEx m
   (nrank,nroot) <- findEx n
@@ -54,5 +57,5 @@ union m n = do
       writeRef nroot $ Root (nrank+1)
 
 -- | check if currently equal
-eq :: MonadRef m => Disjoint m -> Disjoint m -> m Bool
+eq :: MonadRef m => DisjointM m -> DisjointM m -> m Bool
 eq m n = liftA2 (==) (find m) (find n)
