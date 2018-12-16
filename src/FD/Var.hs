@@ -21,7 +21,6 @@ import Control.Monad (join, when, guard)
 import Control.Monad.Primitive
 import Data.Set as Set
 import Data.Type.Coercion
-import Logic.Class
 import Ref
 import Signal
 
@@ -44,22 +43,19 @@ instance HasSignals m (FDVar m a) where
 instance (s ~ PrimState m) => Reference s (Set a) (FDVar m a) where
   reference (FDVar r _) = r
 
--- TODO: interleave isn't sound any more
 newFDVar
-  :: ( MonadLogic m
-     , MonadSignal e m
+  :: ( MonadSignal e m
      , Ord a
      ) => Set a -> m (FDVar m a)
 newFDVar dom = do
   rdom <- newRef dom
   let is_ v a = join $ updateRef rdom $ \ s -> (,Set.singleton a) $ when (Set.size s /= 1) $ fire v
-  fmap (FDVar rdom) $ newSignal $ \v -> readRef rdom >>= Set.foldr (interleave . is_ v) A.empty
+  fmap (FDVar rdom) $ newSignal $ \v -> readRef rdom >>= Set.foldr ((<|>) . is_ v) A.empty
 
--- TODO: interleave isn't sound any more
-val :: (MonadLogic m, MonadSignal e m) => FDVar m a -> m a
+val :: MonadSignal e m => FDVar m a -> m a
 val r = do
   let is_ a = join $ updateRef r $ \ s -> (,Set.singleton a) $ a <$ when (Set.size s /= 1) (fire r)
-  readRef r >>= Set.foldr (interleave . is_) A.empty
+  readRef r >>= Set.foldr ((<|>) . is_) A.empty
 
 -- unsafe
 shrink :: MonadSignal e m => FDVar m a -> (Set a -> Set a) -> m ()

@@ -21,6 +21,7 @@ module Ref
   ) where
 
 import Control.Applicative
+import Control.Monad
 import Control.Monad.Primitive
 import Data.Primitive.MutVar
 import Data.Type.Coercion
@@ -37,7 +38,7 @@ memo ma = do
       a <$ writeRef r (Just a)
     Just a -> pure a
 
-type MonadRef m = (PrimMonad m, Alternative m)
+type MonadRef m = (PrimMonad m, MonadPlus m)
 
 -- | morally, this brackets the success continuation with an undo operation to roll back with upon
 -- taking the failure continuation
