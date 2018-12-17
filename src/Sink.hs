@@ -3,10 +3,11 @@
 
 module Sink where
 
-import Control.Monad.State.Class
+import Control.Monad.Reader.Class
 import Data.Functor.Contravariant
 import Data.Functor.Contravariant.Divisible
 import Data.Void
+import Ref
 import Signal
 
 data Sink m a = Sink 
@@ -31,5 +32,5 @@ instance Applicative m => Decidable (Sink m) where
 instance HasSignals m (Sink m a) where
   signals (Sink s _) = s
 
-writeSink :: (MonadState s m, HasSignalEnv s m) => Sink m a -> a -> m ()
+writeSink :: (MonadRef m, MonadReader e m, HasSignalEnv e m) => Sink m a -> a -> m ()
 writeSink (Sink _ u) a = scope $ u a

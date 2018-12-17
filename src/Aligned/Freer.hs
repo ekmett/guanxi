@@ -86,7 +86,7 @@ instance Unified f => Unified (Free f) where
     go (Free as ka) (Free bs kb) = free <$> merge (\a b -> merge f (ka a) (kb b)) as bs
     go _ _ = empty
 
-unifyMeta :: (Alternative m, MonadRef m, Reference m (Maybe (Free f v)) v, Unified f, Eq v) => v -> Free f v -> m (Free f v)
+unifyMeta :: (MonadRef m, ReferenceM m (Maybe (Free f v)) v, Unified f, Eq v) => v -> Free f v -> m (Free f v)
 unifyMeta a x = readRef a >>= \case
   Nothing -> do
     x' <- zonk x
@@ -96,7 +96,7 @@ unifyMeta a x = readRef a >>= \case
     y' <- unify x y
     y' <$ writeRef a (Just y')
 
-unify :: (Alternative m, MonadRef m, Reference m (Maybe (Free f v)) v, Unified f, Eq v) => Free f v -> Free f v -> m (Free f v)
+unify :: (MonadRef m, ReferenceM m (Maybe (Free f v)) v, Unified f, Eq v) => Free f v -> Free f v -> m (Free f v)
 unify l r = go l (view l) (view r) where
   go t (Pure v) (Pure u) | v == u = return t
   go _ (Pure a) y = unifyMeta a (unview y) -- TODO: union by rank in the (Pure a) (Pure b) case, requires ranked references, though
@@ -105,7 +105,7 @@ unify l r = go l (view l) (view r) where
     free <$> merge (\x y -> unify (kx x) (ky y)) xs ys
 
 -- | zonk/walk-flatten
-zonk :: (MonadRef m, Reference m (Maybe (Free f v)) v, Traversable f) => Free f v -> m (Free f v)
+zonk :: (MonadRef m, ReferenceM m (Maybe (Free f v)) v, Traversable f) => Free f v -> m (Free f v)
 zonk = fmap join . traverse go where
   go v = readRef v >>= \case
     Nothing -> pure $ pure v

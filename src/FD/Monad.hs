@@ -20,6 +20,7 @@ module FD.Monad where
 
 import Control.Applicative
 import Control.Monad.Primitive
+import Control.Monad.Reader
 import Control.Monad.State.Strict
 import Control.Monad.ST
 import Data.Default
@@ -29,14 +30,14 @@ import Logic.Reflection as Reflection
 import Par.Cont as Cont
 import Signal
 
-type FD' s = StateT (SignalEnv (FD s)) (Reflection.LogicT (ST s))
+type FD' s = ReaderT (SignalEnv (FD s)) (Reflection.LogicT (ST s))
 
 type M = FD
 
 newtype FD s a = FD { runFD :: Cont.Par (FD' s) a } deriving
   ( Functor, Applicative, Alternative
   , Monad, MonadPlus
-  , MonadState (SignalEnv (FD s))
+  , MonadReader (SignalEnv (FD s))
   , PrimMonad
   )
 
@@ -45,7 +46,9 @@ instance MonadLogic (FD s) where
   interleave = (<|>)
 
 unFD :: FD s a -> LogicT (ST s) a
-unFD m = evalStateT (evalStateT (statePar (runFD m)) def) def
+unFD m = do
+  se <- newSignalEnv
+  runReaderT (evalStateT (statePar (runFD m)) def) se
 
 run1 :: (forall s. FD s a) -> a
 run1 m = runST $ observeT $ unFD m

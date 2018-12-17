@@ -25,6 +25,7 @@ module Log
   , Cursor, newCursor, oldCursor, deleteCursor, advance
   ) where
 
+import Control.Monad.Primitive
 import Control.Monad (join)
 import Control.Lens
 import Data.FingerTree as F
@@ -88,28 +89,32 @@ data Log u a where
   Log :: Semigroup a => { getLog :: Ref u (LogState a) } -> Log u a
 #endif
 
+type LogM m = Log (PrimState m)
+
 -- log :: HasRefEnv s u => Log u a -> Lens' s (LogState a)
 -- log = ref . getLog
 
-newLog :: (MonadRef m, Semigroup a) => Bool -> m (Log m a)
+newLog :: (MonadRef m, Semigroup a) => Bool -> m (LogM m a)
 newLog = fmap Log . newRef . newLogState
 
-readLog :: MonadRef m => Log m a -> m (LogState a)
+readLog :: MonadRef m => LogM m a -> m (LogState a)
 readLog = readRef . getLog
 
 -- | Get a snapshot of the # of cursors outstanding
-cursors :: MonadRef m => Log m a -> m Int
+cursors :: MonadRef m => LogM m a -> m Int
 cursors l@Log{} = readLog l <&> \(LogState t _ c _) -> refCount (measure t) + c
 
-record :: MonadRef m => Log m a -> a -> m ()
+record :: MonadRef m => LogM m a -> a -> m ()
 record (Log r) a = modifyRef r (recordState a)
 
-data Cursor m a = Cursor {-# unpack #-} !(Log m a) {-# unpack #-} !(Ref m Int)
+data Cursor s a = Cursor {-# unpack #-} !(Log s a) {-# unpack #-} !(Ref s Int)
+
+type CursorM m = Cursor (PrimState m)
 
 -- data Cursor a = Cursor !(Var a) {-# UNPACK #-} !Int
 
 -- | Subscribe to _new_ updates, but we won't get the history.
-newCursor, oldCursor :: MonadRef m => Log m a -> m (Cursor m a)
+newCursor, oldCursor :: MonadRef m => LogM m a -> m (CursorM m a)
 newCursor l@(Log r) = Cursor l <$> do
   i <- updateRef r watchNew
   newRef i
@@ -119,7 +124,7 @@ oldCursor l@(Log r) = Cursor l <$> do
   newRef i
 
 -- invalidates this cursor
-deleteCursor :: MonadRef m => Cursor m a -> m ()
+deleteCursor :: MonadRef m => CursorM m a -> m ()
 deleteCursor (Cursor (Log rlr) ri) = do
   i <- readRef ri
   modifyRef rlr $ \ls@(LogState t v c m) -> if
@@ -137,7 +142,7 @@ deleteCursor (Cursor (Log rlr) ri) = do
 
 -- 0 m 1 m {2 mempty} 3 m 4 m {5 mempty} {6 mempty} {7 mempty} 8 m {9 mempty} 10 Maybe
 -- {}'d things are implied
-advance :: forall m a. MonadRef m => Cursor m a -> m (Maybe a)
+advance :: forall m a. MonadRef m => CursorM m a -> m (Maybe a)
 advance (Cursor (Log rlr) ri) = do
   i <- readRef ri
   join $ updateRef rlr $ \ls@(LogState t v c (m :: Maybe a)) -> if

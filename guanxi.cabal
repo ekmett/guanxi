@@ -69,7 +69,6 @@ library
     Cover.DLX
     Cover.DXZ
     Disjoint
-    Env
     Equality
     FD.Monad
     FD.Var

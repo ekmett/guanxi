@@ -31,6 +31,7 @@ cbits/dlx_queens
 cbits/dxz_queens
 dist
 dist-newstyle
+dist-doctest
 docs
 ghcid.txt
 old
