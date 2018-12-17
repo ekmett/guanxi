@@ -16,8 +16,8 @@
 -- Stability :  experimental
 -- Portability: non-portable
 
-module Log 
-  ( 
+module Log
+  (
   -- * Logs
     Log(..)
   , newLog, cursors, record
@@ -39,7 +39,7 @@ data LogEntry a = LogEntry
   } deriving (Show, Functor, Foldable, Traversable)
 
 instance Semigroup a => Measured (LogEntry (Maybe a)) (LogEntry a) where
-  measure = fmap Just 
+  measure = fmap Just
 
 instance Semigroup a => Semigroup (LogEntry a) where
   LogEntry i c a <> LogEntry j d b = LogEntry (max i j) (c + d) (a <> b)
@@ -82,7 +82,7 @@ watchOld :: Semigroup a => LogState a -> (Int, LogState a)
 watchOld (LogState t v c m) = case viewl t of
   EmptyL -> (v, LogState t v (c+1) m)
   LogEntry ov oc a F.:< t' -> (ov, LogState (LogEntry ov (oc+1) a F.<| t') v c m)
- 
+
 #ifndef HLINT
 data Log u a where
   Log :: Semigroup a => { getLog :: Ref u (LogState a) } -> Log u a
@@ -99,7 +99,7 @@ readLog = readRef . getLog
 
 -- | Get a snapshot of the # of cursors outstanding
 cursors :: MonadRef m => Log m a -> m Int
-cursors l@Log{} = readLog l <&> \(LogState t _ c _) -> refCount (measure t) + c 
+cursors l@Log{} = readLog l <&> \(LogState t _ c _) -> refCount (measure t) + c
 
 record :: MonadRef m => Log m a -> a -> m ()
 record (Log r) a = modifyRef r (recordState a)
@@ -111,7 +111,7 @@ data Cursor m a = Cursor {-# unpack #-} !(Log m a) {-# unpack #-} !(Ref m Int)
 -- | Subscribe to _new_ updates, but we won't get the history.
 newCursor, oldCursor :: MonadRef m => Log m a -> m (Cursor m a)
 newCursor l@(Log r) = Cursor l <$> do
-  i <- updateRef r watchNew 
+  i <- updateRef r watchNew
   newRef i
 
 oldCursor l@(Log r) = Cursor l <$> do
@@ -139,7 +139,7 @@ deleteCursor (Cursor (Log rlr) ri) = do
 -- {}'d things are implied
 advance :: forall m a. MonadRef m => Cursor m a -> m (Maybe a)
 advance (Cursor (Log rlr) ri) = do
-  i <- readRef ri 
+  i <- readRef ri
   join $ updateRef rlr $ \ls@(LogState t v c (m :: Maybe a)) -> if
     | i >= v -> case m of
       Nothing -> (pure Nothing, ls)
