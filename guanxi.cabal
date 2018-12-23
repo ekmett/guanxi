@@ -69,6 +69,7 @@ library
     Cover.DLX
     Cover.DXZ
     Disjoint
+    Domain.Relational
     Equality
     FD.Monad
     FD.Var
