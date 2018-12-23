@@ -86,6 +86,8 @@ library
     Par.Future
     Par.Promise
     Ref
+    Relative.Base
+    Relative.Internal
     Sink
     Prompt.Class
     Prompt.Iterator
