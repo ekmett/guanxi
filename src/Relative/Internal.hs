@@ -5,8 +5,7 @@
 {-# language GeneralizedNewtypeDeriving #-}
 
 module Relative.Internal
-  ( Delta(..)
-  , Relative(..)
+  ( Relative(..)
   , RelativeSemigroup
   , RelativeMonoid
   , View(..) -- re-export
@@ -32,19 +31,14 @@ import Unaligned.Internal (View(..), Rev(..))
 -- * Interface
 --------------------------------------------------------------------------------
 
-newtype Delta = Delta Integer deriving (Num, Eq, Ord, Show)
-
-instance Semigroup Delta where
-  (<>) = (+) 
-
-instance Monoid Delta where
-  mempty = 0
-
 class Relative a where
-  rel :: Delta -> a -> a
+  rel :: Integer -> a -> a
 
-instance Relative Delta where
-  rel = (<>) 
+instance Relative a => Relative (Maybe a) where
+  rel = fmap . rel
+
+instance Relative Integer where
+  rel = (+) 
 
 -- rel d (a <> b) = rel d a <> rel d b
 class (Relative a, Semigroup a) => RelativeSemigroup a where
@@ -113,35 +107,10 @@ instance Singleton t => Singleton (Rev t) where
   singleton = Rev . singleton
 
 --------------------------------------------------------------------------------
--- * Lists
---------------------------------------------------------------------------------
-
-{-
-data List a = List !Delta [a]
-
-{-# complete Nil, Cons :: List #-}
-{-# complete Nil, LCons :: List #-}
-{-# complete LNil, Cons :: List #-}
-
-instance Nil List where
-  nil = List 0 []
-
-instance Cons List where
-  cons a (List d as) = List d (rel (-d) a : as)
-
-instance Uncons List where
-  uncons (List _ []) = Empty
-  uncons (List d (a:as)) = rel d a :&: List d as
-
-instance Singleton List where
-  singleton a = List 0 [a]
--}
-
---------------------------------------------------------------------------------
 -- * Queues
 --------------------------------------------------------------------------------
 
-data Q a = Q !Delta [a] (Rev [] a) [a]
+data Q a = Q !Integer [a] (Rev [] a) [a]
 
 instance Relative (Q a) where
   rel 0 q = q
@@ -181,7 +150,7 @@ instance Singleton Q where
 instance Snoc Q where
   snoc (Q d f (Rev r) s) a = exec d f (Rev (rel (-d) a : r)) s
 
-exec :: Delta -> [a] -> Rev [] a -> [a] -> Q a
+exec :: Integer -> [a] -> Rev [] a -> [a] -> Q a
 exec d xs ys (_:t) = Q d xs ys t
 exec d xs ys []    = Q d xs' (Rev []) xs' where xs' = rotate xs ys []
 

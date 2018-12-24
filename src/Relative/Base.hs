@@ -14,7 +14,6 @@ module Relative.Base
   , pattern Nil
   , pattern Cons
   , pattern Snoc
-  , Delta(..)
   , Relative(..)
   , RelativeSemigroup
   , RelativeMonoid
