@@ -21,6 +21,8 @@ module Relative.Internal
   , pattern Nil
   , pattern Cons
   , pattern Snoc
+  , foldMapQ
+  , foldMapCat
   ) where
 
 import Data.Default
