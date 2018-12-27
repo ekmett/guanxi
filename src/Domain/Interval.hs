@@ -20,10 +20,11 @@ module Domain.Interval
   , absi
   -- relations
   , lt,  le,  eq,  ne,  ge,  gt
-  , zle, zge -- TODO finish
-  , lez, eqz, nez, gez -- TODO rest
+  , zlt, zle, zeq, zne, zge, zgt
+  , ltz, lez, eqz, nez, gez, gtz
   , onceBoundedBelow, onceBoundedAbove
   , onceKnown, onHi, onLo
+  , known
   ) where
 
 import Control.Applicative
@@ -112,7 +113,7 @@ findRef c = readRef c >>= \case
     (z'', r, root) <$ writeRef c (Child z'' root)
 
 -- bound below by a constant
-zle, zge :: MonadRef m => Z -> Interval m -> m ()
+zlt, zle, zeq, zne, zge, zgt :: MonadRef m => Z -> Interval m -> m ()
 zle lo (Concrete a) = guard (lo <= a)
 zle lo (Interval m c) = do
   (d, R rank olo ohi lop hip cov, croot) <- findRef c
@@ -132,10 +133,15 @@ zle lo (Interval m c) = do
         Right x | x == lo-m-d -> runKs cov (lo-m-d)
         _ -> pure ()
 
+zgt = flip ltz
 zge = flip lez
+zlt z i = zle (z+1) i
+zeq = flip eqz
+zne = flip nez
+
 
 -- bound above by a constant
-lez, gez :: MonadRef m => Interval m -> Z -> m ()
+ltz, lez, gez, gtz :: MonadRef m => Interval m -> Z -> m ()
 lez (Concrete a) hi = guard (a <= hi)
 lez (Interval m c) hi = do
   (d, R rank olo ohi lop hip cov, croot) <- findRef c
@@ -155,6 +161,8 @@ lez (Interval m c) hi = do
         _ -> pure ()
 
 
+ltz i z = lez i (z-1)
+gtz = flip zlt
 gez = flip zle
 
 -- eqz i z = do zli z i; lez i z
@@ -334,74 +342,34 @@ union (Concrete a) i d = eqz i (a - d)
 union i (Concrete b) d = eqz i (b + d)
 union (Interval p x) (Interval q y) z = unionRef x y (q - p + z)
 
--- take one step refining an interval into smaller intervals
--- this produces at least one closed interval at each step
--- those intervals get larger and larger
-refineRef :: MonadRef m => C m -> m (Maybe Z)
-refineRef c = do
-  (d, r@(R rank mlo mhi lop hip cov), root) <- findRef c
-  let -- setLo :: Z -> m (R m)
-      setLo x = do
-        let r' = mkR rank (Right x) mhi lop hip cov
-        writeRef root $ Root r'
-        pure r'
-      -- setHi :: Z -> m (R m)
-      setHi x = do
-        let r' = mkR rank mlo (Right x) lop hip cov
-        writeRef root $ Root r'
-        pure r'
-  mz <- fmap covered $ if
-    | Right lo <- mlo, Right hi <- mhi, m <- div (lo + hi) 2 -- we have a finite interval, split it
-      -> if lo == hi then pure r -- single value, can't refine
-         else do let pm = m-1
-                 guard (pm >= lo)
-                 result <- setHi pm
-                 result <$ when (pm < hi) (runPs hip root)
-          <|> do guard (m <= hi)
-                 result <- setLo m
-                 result <$ when (m > lo) (runPs lop root)
-    | Right lo <- mlo, lo >=0, Left qs <- mhi, mid <- 2*lo -- non-negative, split using doubling open ended search scheme
-        -> do result <- setHi mid
-              result <$ runPs (hip <> qs) root -- we went from an infinite upper bound to a finite upper bound, definite progress
-       <|> do result <- setLo (mid+1)
-              result <$ runPs lop root -- lo >= 0 ==> 2*lo+1 > lo, so we made progress
-    | Left ps <- mlo, Right hi <- mhi, hi < 0, mid <- 2*hi
-        -> do result <- setLo (mid+1)
-              result <$ runPs (lop <> ps) root
-       <|> do result <- setHi mid
-              result <$ runPs hip root
-    | otherwise -- mixed negative and positive, split arbitrarily at 0, TODO check for finiteness first
-        -> do result <- setHi (-1)
-              case mhi of
-                Left qs -> runPs qs root
-                _ -> pure ()
-              result <$ runPs hip root
-       <|> do result <- setLo 0
-              case mlo of
-                Left ps -> runPs ps root
-                _ -> pure ()
-              result <$ runPs lop root
-  -- cleanup
-  case mz of
-    Just z -> Just (z+d) <$ runKs cov z -- coverage cleanup
-    Nothing -> pure Nothing
-
 abstract :: Z -> Interval m
 abstract = Concrete
 
--- perform one step of refining an interval towards concrete values
-refine :: MonadSignal e m => Interval m -> m (Maybe Z)
+known :: MonadRef m => Interval m -> m (Maybe Z)
+known i = range i <&> \case
+  (Just x, Just y) | x == y -> Just x
+  _ -> Nothing
+
+refine :: MonadRef m => Interval m -> m (Maybe Z)
 refine (Concrete a) = pure (Just a)
-refine (Interval d r) = fmap (d+) <$> refineRef r
+refine i = range i >>= \case
+  (Just lo, Just hi)
+     | lo == hi -> pure $ Just lo
+     | m <- div (lo + hi) 2 -> cut m (lo <$ guard (lo == m)) (hi <$ guard (hi == m+1))
+  (Just lo, Nothing)
+     | lo >= 0   -> cut (2*lo) (0    <$ guard (lo ==  0)) Nothing
+     | otherwise -> cut (-1)   ((-1) <$ guard (lo == -1)) Nothing
+  (Nothing, Just hi) -> cut (if hi < 0 then 2*hi else -1) Nothing ((-1) <$ guard (hi == -1))
+  (Nothing, Nothing) -> cut (-1) Nothing Nothing
+ where cut m p q = p <$ lez i m
+               <|> q <$ gtz i m
 
 -- gradually reduce to a single integer, incrementally, letting propagators push information around as we go
 -- this refines until it yields an answer
 concrete :: MonadSignal e m => Interval m -> m Z
-concrete (Concrete a) = pure a
-concrete (Interval d r) = loop where
-  loop = refineRef r >>= \case
-    Nothing -> loop
-    Just z -> pure (d+z)
+concrete i = refine i >>= \case
+  Nothing -> concrete i
+  Just z -> pure z
 
 interval :: MonadSignal e m => Maybe Z -> Maybe Z -> m (Interval m)
 interval (Just lo) (Just hi)
@@ -414,11 +382,13 @@ interval mlo mhi = do
   let simple (Left Nil) = True
       simple Right{} = True
       simple _ = False
-  grounding $ findRef ref >>= \case
-    (_, r, _) | Nil <- rlop r, Nil <- rhip r, Nil <- rcov r, simple (rlo r), simple (rhi r) -> pure ()
-      -- nobody cares if we ground this, so don't
-      -- TODO: report the multiplicity of the current solution by multiplying it by the interval width
-    (_, _, root) -> fix $ \loop -> refineRef root >>= maybe loop (const $ pure ())
+  let i = Interval 0 ref
+  grounding $ fix $ \loop ->
+    findRef ref >>= \case
+      (_, r, _)
+         | Nil <- rlop r, Nil <- rhip r, Nil <- rcov r, simple (rlo r), simple (rhi r) -> pure () -- nobody cares, so don't
+         -- TODO: properly report multiplicity of the solution
+         | otherwise -> refine i >>= maybe loop (const $ pure ())
   pure $ Interval 0 ref
 
 -- bottom = [-infinity,infinity], a fresh interval
