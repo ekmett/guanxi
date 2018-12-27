@@ -1,4 +1,5 @@
 {-# language LambdaCase #-}
+              
 {-# language BangPatterns #-}
 {-# language FlexibleInstances #-}
 {-# language MultiParamTypeClasses #-}
@@ -23,12 +24,16 @@ module Domain.Interval
   , zlt, zle, zeq, zne, zge, zgt
   , ltz, lez, eqz, nez, gez, gtz
   , onceBoundedBelow, onceBoundedAbove
-  , onceKnown, onHi, onLo
+  , onceKnown
+  -- , poly
+  , onHi, onLo
+  , deltaHi, deltaLo
   , known
   ) where
 
 import Control.Applicative
 import Control.Monad
+-- import Control.Monad.Cont
 import Control.Monad.Fix
 import Data.Bifunctor
 import Data.Functor
@@ -216,6 +221,26 @@ onLo (Interval n c) f = do
     Nothing -> do
       let f' z e = findRef e >>= \ (j, R { rlo = Right k, rhi = u }, _) -> f (z+j+k) $ either (const Nothing) (\l -> Just $ z+j+l) u
       writeRef croot $ Root r { rlop = rlop r `R.snoc` P (n+d) f' }
+
+-- when run this will tell the improvement since the last firing
+deltaLo :: MonadRef m => Interval m -> (Maybe Z -> Z -> Maybe Z -> m ()) -> m ()
+deltaLo (Concrete a) f = f (Just a) a (Just a) -- just the initial firing
+deltaLo i f = do
+  (mlo, _) <- range i
+  omlo <- newRef mlo
+  onLo i $ \lo mhi -> do
+    x <- updateRef omlo $ \a -> (a, Just lo)
+    f x lo mhi
+
+-- when run this will tell the improvement since the last firing
+deltaHi :: MonadRef m => Interval m -> (Maybe Z -> Maybe Z -> Z -> m ()) -> m ()
+deltaHi (Concrete a) f = f (Just a) (Just a) a -- just the initial firing
+deltaHi i f = do
+  (_, mhi) <- range i
+  omhi <- newRef mhi
+  onHi i $ \mlo hi -> do
+    x <- updateRef omhi $ \a -> (a, Just hi)
+    f mlo x hi
 
 onHi :: MonadRef m => Interval m -> (Maybe Z -> Z -> m ()) -> m ()
 onHi (Concrete a) f = f (Just a) a
@@ -418,7 +443,6 @@ lt i@(Interval p c) j@(Interval n d) = do
   onLo i $ \lo _ -> zle lo j
 
 eq x y = union x y 0
-
 ge = flip le
 gt = flip lt
 
@@ -443,15 +467,49 @@ range (Concrete a) = pure (Just a, Just a)
 range (Interval n c) = rangeRef n c
 
 {-
--- from here down is nonsense
+-- polynomial inequality \Sum_i a_i x_i <= 0
+polyle :: MonadRef m => [(Z, Interval m)] -> m ()
+polyle xs = do
+  let tally r (0, _) = pure r
+      tally (t,ys,n) (k, Concrete a) = pure (t + k*a, ys,n)
+      tally (t,ys,n) (k, Interval m c) = do
+        (d, _, root) <- findRef c
+        pure (t + k*(m+d), (k,root):ys,n+1)
+  (p,ps,n) <- foldM tally (0,[]) xs
+  
+  case ps of
+    [] -> guard (p <= 0)
+    -- k*c + p <= 0, k /= 0
+    [(k,c)] -> (if k > 0 then lez else gez) (Interval 0 c) (negate p `div` k)
+    -- 2 or more things, we need to watch until one is left
+    (k1,c1):(k2,c2):ps' -> do
+        rn <- newRef (n,ps')
+        let bound k c = do
+              (mlo,mhi) <- rangeRef 0 c
+              mb <- if k <0 then (k*)<$> mlo else (k*)<$> mhi
+            onceBoundedBy k
+              | k < 0     = onceBoundedBelow
+              | otherwise = onceBoundedAbove
+        -- data Watch a = Zero | One a | Many a
+        let watch k c = onceBoundedBy k $ 
+              (r,n') <- updateRef rn $ \(n',(p:ps')) -> ((p,n'-1), (n'-1,tail ps')
+              
+              case n' of
+                1 -> -- we're down to one ref, learn its bound first
+                0 -> -- we're down to zero refs, 
+                     -- everybody has a bound
+                     -- will be tedious to Chebyshev fit / compute a Gompertz cut
+        watch k1 c1
+        watch k2 c2
+    
+      -- go n ps where
+      
+  if | [] <- n == 0 -> guard (p <= 0)
+     | n == 1 -> lez (Interval 0 (head ps)
+  pure ()
+-}
 
--- check if already concrete, but do not force any decisions yet
-tryConcrete :: MonadSignal e m => C m -> m (Either (Z, R m, C m) Natural)
-tryConcrete c = go <$> findEx c where
-  go (d, R _ (Just lo) (Just hi) _ _, croot) | lo == hi = Right (d + lo)
-  go l = Left l
-
-
+{-
 -- add a list of positive values to a list of negative values in such a way that the total equals 0.
 addsub :: [Interval m] -> [Interval m] -> m ()
 addsub xs ys = do
@@ -516,39 +574,5 @@ addsub xs ys = do
   watchHi1 p ps $ \p' -> watchLo1 n qs $ \q' -> watchAll (q' - p') qs ps
   -- scan through rs looking for one that
   -- add a 1-watch literal scheme for slow wakeup
-
--- TODO: make this a three way relationship
-add :: Interval m -> Interval m -> m (Interval m)
-add (Concrete n) (Concrete m)   = pure $ Concrete (n + m)
-add (Concrete n) (Interval m c) = pure $ Interval (n + m) c
-add (Interval n c) (Concrete m) = pure $ Concrete (n + m) c
-add (Interval n c) (Interval m d) =
-  tryConcrete c >>= \case
-    Right o -> Interval (n + m + o) d
-    Left (cd, R crank clo chi clop chip, croot) -> tryConcrete d >>= \case
-      Right o -> Interval (n + m + o) c
-      Left (dd, R drank dlo dhi dlop dhip, droot) -> do
-        result@(Interval z e) <- addz (n + m + cd + dd) <$> interval (liftA2 (+) clo dlo) (liftA2 (+) chi dhi)
-        let hup = P 0 $ do
-              (_,mh1) <- range croot
-              (_,mh2) <- range droot
-              (ed, R erank elo ehi elop ehip, eroot) <- findRef e
-              for_ (liftA2 (\h1 h2 -> h1 + h2 - ed) mh1 mh2) $ \h ->
-                when (maybe True (> h) ehi) $ do
-                  writeRef eroot $ Root $ R erank elo (Just h) elop ehip
-                  runP ehip eroot
-            lup = P 0 $ do
-              (ml1,_) <- range croot
-              (ml2,_) <- range droot
-              (ed, R erank elo ehi elop ehip, eroot) <- findRef e
-              for_ (liftA2 (\l1 l2 -> l1 + l2 - ed) ml1 ml2) $ \l ->
-                when (maybe True (< l) eli) $ do
-                  writeRef eroot $ Root $ R erank (Just l) ehi elop ehip
-                  runP elop eroot
-        writeRef croot $ Root $ R crank clo chi (snoc clop lup) (snoc chip hup)
-        writeRef droot $ Root $ R drank dlo dhi (snoc dlop lup) (snoc dhip hup)
-        -- TODO: add relationships back to the other two intervals via subtraction so that when this is narrowed, we can narrow them as well
-        -- TODO: add slow-wakeup (when we learn things aren't bottom) and slow-sleep when we learn they are concrete
-        return result
 
 -}
