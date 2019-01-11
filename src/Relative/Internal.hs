@@ -5,7 +5,9 @@
 {-# language GeneralizedNewtypeDeriving #-}
 
 module Relative.Internal
-  ( Relative(..)
+  ( Unit(..)
+  , Aff(..), utimes
+  , Relative(..)
   , RelativeSemigroup
   , RelativeMonoid
   , View(..) -- re-export
@@ -27,20 +29,57 @@ module Relative.Internal
 
 import Data.Default
 import GHC.Exts as Exts
+import Group
 import Unaligned.Internal (View(..), Rev(..))
 
 --------------------------------------------------------------------------------
 -- * Interface
 --------------------------------------------------------------------------------
 
+data Unit = One | NegativeOne
+
+instance Semigroup Unit where
+  One <> x = x
+  x <> One = x
+  NegativeOne <> NegativeOne = One
+
+instance Monoid Unit where
+  mempty = One
+
+instance Group Unit where
+  inv = id
+
+data Aff = Aff !Unit !Integer
+
+-- group action 
+utimes :: Unit -> Integer -> Integer
+utimes One = id
+utimes NegativeOne = negate
+
+-- a(bx+c)+d = (ab)x + ac+d
+instance Semigroup Aff where
+  Aff a d <> Aff b c = Aff (a<>b) (utimes a c + d)
+
+instance Monoid Aff where
+  mempty = Aff One 0
+
+-- y = ax+b
+-- y-b = ax
+-- (y-b)*a^-1 = x
+-- (a^-1)y-(a^-1)b = x
+
+instance Group Aff where
+  inv (Aff a b) = Aff (inv a) (negate $ inv a `utimes` b)
+
+-- group action
 class Relative a where
-  rel :: Integer -> a -> a
+  rel :: Aff -> a -> a
 
 instance Relative a => Relative (Maybe a) where
   rel = fmap . rel
 
 instance Relative Integer where
-  rel = (+) 
+  rel (Aff a b) x = utimes a x + b
 
 -- rel d (a <> b) = rel d a <> rel d b
 class (Relative a, Semigroup a) => RelativeSemigroup a where
@@ -112,16 +151,16 @@ instance Singleton t => Singleton (Rev t) where
 -- * Queues
 --------------------------------------------------------------------------------
 
-data Q a = Q !Integer [a] (Rev [] a) [a]
+data Q a = Q {-# unpack #-} !Aff [a] (Rev [] a) [a]
 
 instance Relative (Q a) where
-  rel 0 q = q
-  rel d (Q d' as bs cs) = Q (d + d') as bs cs
+  rel (Aff One 0) xs = xs
+  rel d (Q d' as bs cs) = Q (d <> d') as bs cs
 
 {-# complete Nil, Cons :: Q #-}
 
 instance Default (Q a) where
-  def = Q 0 [] (Rev []) []
+  def = Q mempty [] (Rev []) []
 
 instance (Show a, Relative a) => Show (Q a) where
   showsPrec d = showsPrec d . Exts.toList 
@@ -136,10 +175,10 @@ foldMapQ :: (Relative a, Monoid m) => (a -> m) -> Q a -> m
 foldMapQ f (Q d as bs _) = foldMap (f . rel d) as <> foldMap (f . rel d) bs
 
 instance Nil Q where
-  nil = Q 0 [] (Rev []) []
+  nil = Q mempty [] (Rev []) []
 
 instance Cons Q where
-  cons a (Q d f r s) = let a' = rel (-d) a in Q d (a':f) r (a':s)
+  cons a (Q d f r s) = let a' = rel (inv d) a in Q d (a':f) r (a':s)
 
 instance Uncons Q where
   uncons (Q _ [] (Rev []) _) = Empty
@@ -147,12 +186,12 @@ instance Uncons Q where
   uncons _ = error "Q.uncons: invariants violated"
 
 instance Singleton Q where
-  singleton a = Q 0 [a] (Rev []) []
+  singleton a = Q mempty [a] (Rev []) []
 
 instance Snoc Q where
-  snoc (Q d f (Rev r) s) a = exec d f (Rev (rel (-d) a : r)) s
+  snoc (Q d f (Rev r) s) a = exec d f (Rev (rel (inv d) a : r)) s
 
-exec :: Integer -> [a] -> Rev [] a -> [a] -> Q a
+exec :: Aff -> [a] -> Rev [] a -> [a] -> Q a
 exec d xs ys (_:t) = Q d xs ys t
 exec d xs ys []    = Q d xs' (Rev []) xs' where xs' = rotate xs ys []
 
@@ -169,7 +208,7 @@ data Cat a = E | C a !(Q (Cat a))
 
 instance Relative a => Relative (Cat a) where
   rel _ E = E
-  rel 0 as = as
+  rel (Aff One 0) as = as
   rel d (C a as) = C (rel d a) (rel d as)
 
 instance Relative a => RelativeSemigroup (Cat a) 

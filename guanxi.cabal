@@ -74,6 +74,7 @@ library
     Equality
     FD.Monad
     FD.Var
+    Group
     Key
     Key.Coercible
     Log
