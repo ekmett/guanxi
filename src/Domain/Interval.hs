@@ -1,5 +1,4 @@
 {-# language LambdaCase #-}
-              
 {-# language BangPatterns #-}
 {-# language FlexibleInstances #-}
 {-# language MultiParamTypeClasses #-}
@@ -12,7 +11,6 @@ module Domain.Interval
   ( Interval, Z
   , abstract, concrete
   , refine
-  , union
   , interval
   , bottom
   , signumi
@@ -108,7 +106,7 @@ pattern Covered z <- (covered -> Just z) where
 data Content m
   = Root {-# unpack #-} !(R m) -- we are the root
   | Child {-# unpack #-} !Aff {-# unpack #-} !(C m) -- union-find child, with parent pointer and an integer offset from the parent
-  
+
 
 instance Relative (Content m) where
   rel d (Root r) = Root (rel d r)
@@ -134,7 +132,7 @@ zle lo (Concrete a) = guard (lo <= a)
 zle b (Interval m c) = do
   (d, R rank olo ohi lop hip cov, croot) <- findRef c
   let md = m<>d
-  case md of 
+  case md of
     Aff One _ -> do
       let lo' = rel (inv md) b
       for_ ohi $ \hi -> guard (lo' <= hi) -- check we're not empty
@@ -167,7 +165,7 @@ zle b (Interval m c) = do
           case olo of
             Right x | x == hi' -> runKs cov hi'
             _ -> pure ()
-    
+
 zgt = flip ltz
 zge = flip lez
 zlt z i = zle (z+1) i
@@ -222,7 +220,7 @@ onceBoundedBelow (Interval n c) m = do
     Aff NegativeOne _ -> case rhi r of
       Left qs -> writeRef croot $ Root r { rhi = Left $ qs `R.snoc` P mempty (\_ _ -> m) }
       Right{} -> m -- already bounded above
-    
+
 onceBoundedAbove :: MonadRef m => Interval m -> m () -> m ()
 onceBoundedAbove = onceBoundedBelow . neg
 
@@ -269,87 +267,65 @@ onceKnown (Interval n c) f = do
     Just z -> f (rel nd z)
     Nothing -> writeRef croot $ Root r { rcov = rcov r `R.snoc` P nd (\a b -> f (rel a b)) }
 
-{-
-maxx, minx :: Ps m -> Ps m -> Aff -> Either (Ps m) Z -> Either (Ps m) Z -> (Ps m, Ps m, Either (Ps m) Z)
+-- rel o xap <> xbp
+
+maxx, minx :: Ps m -> Ps m -> Aff -> Either (Ps m) Z -> Either (Ps m) Z -> (Ps m, Either (Ps m) Z)
 maxx xap xbp o (Right a) (Right b) =
-  ( if rel o a < b then rel o xap else nil
-  , if b < rel o a then xbp else nil
-  , Right $ max (rel o a) b)
-maxx _ _   o (Left ps) (Left ps') = (nil, nil, Left $ rel o ps <> ps')
-maxx xap _ o (Left ps) rb@Right{} = (rel o (xap <> ps), nil, rb)
-maxx _ xbp o (Right a) (Left ps)  = (nil, xbp <> ps, Right $ rel o a)
+  ( (if rel o a < b then rel o xap else nil) <> (if b < rel o a then xbp else nil)
+  , Right $ max (rel o a) b
+  )
+maxx _ _ o (Left ps) (Left ps') = (nil, Left $ rel o ps <> ps')
+maxx xap _ o (Left ps) rb@Right{} = (rel o (xap <> ps), rb)
+maxx _ xbp o (Right a) (Left ps)  = (xbp <> ps, Right $ rel o a)
 
 minx xap xbp o (Right a) (Right b) =
-  ( if rel o a > b then rel o xap else nil
-  , if b > rel o a then xbp else nil
+  ( (if rel o a > b then rel o xap else nil) <> (if b > rel o a then xbp else nil)
   , Right $ min (rel o a) b
   )
-minx _ _    o (Left ps) (Left ps') = (nil, nil, Left $ rel o ps <> ps')
-minx xap _  o (Left ps) rb@Right{} = (rel o (xap <> ps), nil, rb)
-minx _ xbp  o (Right a) (Left ps)  = (nil, xbp <> ps, Right $ rel o a)
+minx _ _ o (Left ps) (Left ps') = (nil, Left $ rel o ps <> ps')
+minx xap _ o (Left ps) rb@Right{} = (rel o (xap <> ps), rb)
+minx _ xbp o (Right a) (Left ps)  = (xbp <> ps, Right $ rel o a)
 
-ltLo :: Ord c => Either a c -> Either b c -> Bool
-ltLo Left{} Left{}  = False
-ltLo Left{} Right{} = True
-ltLo Right{} Left{} = False
-ltLo (Right a) (Right b) = a < b
-
-ltHi :: Ord c => Either a c -> Either b c -> Bool
-ltHi Left{} Left{}  = False
-ltHi Left{} Right{} = False
-ltHi Right{} Left{} = True
-ltHi (Right a) (Right b) = a < b
--}
+no :: Unit -> a -> a -> a
+no One x _ = x
+no NegativeOne _ y = y
 
 -- this is a special case when we go to define 'addition' and only two of the entries are non-constant
 -- and is implemented by union-find rather than propagation
 -- union x f y means x := f(y), y = (f^-1)(x)
-unionRef :: MonadRef m => C m -> Aff -> C m -> m ()
-unionRef = undefined
-{-
-unionRef x d y = do
+eqRef :: MonadRef m => C m -> Aff -> C m -> m ()
+eqRef x d y = do
   (xd, R xrank xlo xhi xlop xhip xcov, xroot) <- findRef x
   (yd, R yrank ylo yhi ylop yhip ycov, yroot) <- findRef y
+  -- xroot = t(yroot)
+  let t@(Aff u _) = inv xd <> d <> yd
+      o = inv t
   if xrank < yrank then do
-    writeRef xroot $ Child d yroot
-    
-    -- let offset = xd <> inv d <> inv yd -- convert yroot into xroot terms
-    let offset = yd <> inv d <> inv xd -- convert xroot into yroot terms
-    -- yroot = rel offset xroot
-    ((psx,psy,ylo'),(qsx,qsy,yhi')) <- case offset of
-      Aff One _ -> (maxx xlop ylop offset xlo ylo, minx xhip yhip offset xhi yhi)
-      _         -> undefined -- ouch my brain
-    for_ ylo' $ \ a -> for_ yhi' $ \b -> guard (a <= b) -- abort on empty intervals
-    let result = mkR yrank ylo' yhi' (rel (-d) xlop <> ylop) (rel (-d) xhip <> yhip) (rel (-d) xcov <> ycov)
+    writeRef xroot $ Child t yroot
+    let zlop = no u xlop xhip
+        zhip = no u xhip xlop
+        (todo,  ylo') = maxx zlop ylop o (no u xlo xhi) ylo
+        (todo', yhi') = minx zhip yhip o (no u xhi xlo) yhi
+        result = mkR yrank ylo' yhi'
+          (ylop <> rel o zlop) (yhip <> rel o zhip) (ycov <> rel o xcov)
     writeRef yroot $ Root result
-    when (ltLo ylo ylo') $ do
-      runPs (ylop<>psy) yroot
-      runPs psx xroot
-    when (ltHi yhi' yhi) $ do
-      runPs (yhip<>qsy) yroot
-      runPs qsx xroot
+    runPs (todo <> todo') yroot
     case covered result of
-      Just z -> runKs (ycov <> rel (inv offset) xcov) z
+      Just z -> runKs (ycov <> rel o xcov) z
       Nothing -> pure ()
   else do
-    writeRef yroot $ Child (-d) xroot
-    let offset = yd + d - xd
-        (psx,psy,xlo') = maxx xlop ylop offset xlo ylo
-        (qsx,qsy,xhi') = minx xhip yhip offset xhi yhi
-        xrank' = if xrank == yrank then xrank + 1 else xrank
-    for_ xlo' $ \a -> for_ xhi' $ \b -> guard (a <= b) -- abort on empty intervals
-    let result = mkR xrank' xlo' xhi' (xlop <> rel d ylop) (xhip <> rel d yhip) (xcov <> rel d ycov)
+    writeRef yroot $ Child o xroot
+    let zlop = no u ylop yhip
+        zhip = no u yhip ylop
+        (todo,  xlo') = maxx zlop xlop t (no u ylo yhi) xlo
+        (todo', xhi') = minx zhip xhip t (no u yhi ylo) xhi
+        result = mkR (if xrank == yrank then yrank + 1 else yrank) xlo' xhi'
+          (xlop <> rel t zlop) (xhip <> rel t zhip) (xcov <> rel t ycov)
     writeRef xroot $ Root result
-    when (ltLo xlo xlo') $ do
-      runPs (psx<>xlop) xroot
-      runPs psy yroot
-    when (ltHi xhi' xhi) $ do
-      runPs (qsx<>xhip) xroot
-      runPs qsy yroot
+    runPs (todo <> todo') xroot
     case covered result of
-      Just z -> do runKs xcov z; runKs ycov $ z-offset
+      Just z -> runKs (rel t ycov <> xcov) z
       Nothing -> pure ()
--}
 
 -- signumi x y means y := signum x
 signumi :: MonadRef m => Interval m -> Interval m -> m ()
@@ -368,7 +344,7 @@ neg (Interval m c) = Interval (Aff NegativeOne 0 <> m) c
 
 -- negatei x y means y := negate x, x = negate y
 negatei :: MonadRef m => Interval m -> Interval m -> m ()
-negatei i j = union i (Aff NegativeOne 0) j
+negatei i j = eq i (neg j)
 
 -- absolute x y means y := abs x
 absi :: MonadRef m => Interval m -> Interval m -> m ()
@@ -383,12 +359,6 @@ absi i j = do
     (mx,my) -> do
       for_ (liftA2 (\x y -> negate x `max` y) mx my) $ lez j
       zle 1 j *> negatei i j <|> eq i j -- split early
-
--- x := y + d
-union :: MonadRef m => Interval m -> Aff -> Interval m -> m ()
-union (Concrete a) d i = eqz i (rel (inv d) a)
-union i d (Concrete b) = eqz i (rel d b)
-union (Interval p x) z (Interval q y) = unionRef x (inv p <> z <> q) y
 
 abstract :: Z -> Interval m
 abstract = Concrete
@@ -458,7 +428,7 @@ le i j = do
 lt i (Concrete b) = lez i (b-1)
 lt (Concrete a) i = zle (a+1) i
 
--- i need to know if the 
+-- i need to know if the
 --
 -- i = p(q(croot))
 -- j = n(r(droot))
@@ -474,7 +444,10 @@ lt i@(Interval p c) j@(Interval n d) = do
   onHi j $ \hi -> ltz i hi
   onLo i $ \lo -> zlt lo j
 
-eq x y = union x mempty y
+eq (Concrete a) i = eqz i a
+eq i (Concrete b) = eqz i b
+eq (Interval p x) (Interval q y) = eqRef x (inv p <> q) y
+
 ge = flip le
 gt = flip lt
 
@@ -505,7 +478,7 @@ ne i@(Interval p c) j@(Interval n d) = do
         when (overlaps rc rd) $ do
           onceKnown i $ nez j
           onceKnown j $ nez i
-     
+
 -- current range
 rangeRef :: MonadRef m => Aff -> C m -> m (Maybe Z, Maybe Z)
 rangeRef z c = findRef c <&> \ (cd', R _ mlo mhi _ _ _, _) -> (simp cd' mlo, simp cd' mhi) where
@@ -516,114 +489,3 @@ rangeRef z c = findRef c <&> \ (cd', R _ mlo mhi _ _ _, _) -> (simp cd' mlo, sim
 range :: MonadRef m => Interval m -> m (Maybe Z, Maybe Z)
 range (Concrete a) = pure (Just a, Just a)
 range (Interval n c) = rangeRef n c
-
-{-
--- polynomial inequality \Sum_i a_i x_i <= 0
-polyle :: MonadRef m => [(Z, Interval m)] -> m ()
-polyle xs = do
-  let tally r (0, _) = pure r
-      tally (t,ys,n) (k, Concrete a) = pure (t + k*a, ys,n)
-      tally (t,ys,n) (k, Interval m c) = do
-        (d, _, root) <- findRef c
-        pure (t + k*(m+d), (k,root):ys,n+1)
-  (p,ps,n) <- foldM tally (0,[]) xs
-  
-  case ps of
-    [] -> guard (p <= 0)
-    -- k*c + p <= 0, k /= 0
-    [(k,c)] -> (if k > 0 then lez else gez) (Interval 0 c) (negate p `div` k)
-    -- 2 or more things, we need to watch until one is left
-    (k1,c1):(k2,c2):ps' -> do
-        rn <- newRef (n,ps')
-        let bound k c = do
-              (mlo,mhi) <- rangeRef 0 c
-              mb <- if k <0 then (k*)<$> mlo else (k*)<$> mhi
-            onceBoundedBy k
-              | k < 0     = onceBoundedBelow
-              | otherwise = onceBoundedAbove
-        -- data Watch a = Zero | One a | Many a
-        let watch k c = onceBoundedBy k $ 
-              (r,n') <- updateRef rn $ \(n',(p:ps')) -> ((p,n'-1), (n'-1,tail ps')
-              
-              case n' of
-                1 -> -- we're down to one ref, learn its bound first
-                0 -> -- we're down to zero refs, 
-                     -- everybody has a bound
-                     -- will be tedious to Chebyshev fit / compute a Gompertz cut
-        watch k1 c1
-        watch k2 c2
-    
-      -- go n ps where
-      
-  if | [] <- n == 0 -> guard (p <= 0)
-     | n == 1 -> lez (Interval 0 (head ps)
-  pure ()
--}
-
-{-
--- add a list of positive values to a list of negative values in such a way that the total equals 0.
-addsub :: [Interval m] -> [Interval m] -> m ()
-addsub xs ys = do
-  let tally (t,xs) (Concrete a) = pure (t + a, xs)
-      tally (t,xs) (Interval m c) = do
-        (d, _, root) <- findRef c
-        pure (t + m + d, root:xs)
-  (p,ps) <- foldM tally (0,[]) xs
-  (n,qs) <- foldM tally (0,[]) ys
-  let pn = p-n
-  let zs = (False,)<$>ps <> (True,)<$>qs
-  case zs of
-    [] -> guard (p == n) -- concrete, guard
-    [(b,i)] -> eqz i (if b then n-p else p-n) -- one interval, force it, if b then  p-n = -i else p-n = i
-    [(a,i),(b,j)] | a == not b -> unionRef i j (if b then n-p else p-n) -- if b then i = j + n - p
-    bx0:bx1:zs0 -> do
-      w1 <- newRef zs0
-      w2 <- newRef zs0
-      let advance b r k = do
-            mhead <- updateRef r $ \case
-              [] -> (Nothing, [])
-              x:xs -> (Just x, xs)
-            case mhead of
-              Nothing -> k
-              Just (u,c) -> step2 b u c r k
-          step2 b u c r k = do
-            (d, R rank mlo mhi lop hip, croot) <- findRef c
-            if xor b u then case mlo of
-               Left ps -> writeRoot croot $ Root $ R rank (Left (R.snoc ps $ P 0 $ \_ -> advance b r k) mhi lop hip
-               Right _ -> advance b r k
-            else case mhi of
-               Left qs -> writeRoot croot $ Root $ R rank mlo (Left (R.snoc qs $ P 0 $ \_ -> advance b r k) lop hip
-               Right _ -> advance b r k
-          watch2 b (b0,x0) (b1,x1) r k = do
-            step2 b b0 x0 r k
-            step2 b b1 x1 r k
-
-
-      watch2 False bx0 bx1 w1 (propLo zs)
-      watch2 True  bx0 bx1 w2 (propHi zs)
-      -- we need to establish two 2-watched literal schemes to propagate bounds
-
-  if null zs then guard (p == n)
-  else case zs of
-
-
-  let watchLo1 d [] k = k d
-      watchLo1 d (r:rs) k = do
-        (d', R rank mlo mhi mlop mhip, root) <- findRef r
-        case mlo of
-          Left ps -> writeRef root $ Root $ R rank (mlo `R.snoc` stepLo k (d+d')) mhi mlop mhip -- block waiting with 2-watched literal
-
-          Right d'' -> watchLo (d+d'+d'') rs k -- keep going
-  let watchHi1 d [] k = k d
-      watchHi1 d (r:rs) k = do
-        (d', R rank mlo mhi mlop mhip, root) <- findRef r
-        case mhi of
-          Left qs -> writeRef root $ Root $ R rank mlo (mhi `R.snoc` stepHi k (d+d')) mlop mhip -- block waiting with 2-watched literal
-          Right d'' -> watchLo (d+d'+d'') rs k -- keep going
-
-  watchLo1 p ps $ \p' -> watchHi1 n qs $ \q' -> watchAll (p' - q') ps qs
-  watchHi1 p ps $ \p' -> watchLo1 n qs $ \q' -> watchAll (q' - p') qs ps
-  -- scan through rs looking for one that
-  -- add a 1-watch literal scheme for slow wakeup
-
--}
