@@ -114,7 +114,7 @@ common test
 test-suite spec
   import: test
   type: exitcode-stdio-1.0
-  main-is: spec-main.hs
+  main-is: spec.hs
   other-modules:
     Cover.DLXSpec
     FD.MonadSpec
