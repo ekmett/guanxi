@@ -16,10 +16,10 @@ build-type:    Simple
 extra-source-files:
   .hlint.yaml
   CHANGELOG.md
-  QUESTIONS.md
   README.md
   test/doctest.json
-  cbits/queens.cpp
+  cbits/dlx_queens.cpp
+  cbits/dxz_queens.cpp
   cbits/Makefile
 
 source-repository head
