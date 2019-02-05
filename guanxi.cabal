@@ -16,10 +16,11 @@ build-type:    Simple
 extra-source-files:
   .hlint.yaml
   CHANGELOG.md
-  QUESTIONS.md
   README.md
   test/doctest.json
-  cbits/queens.cpp
+  cbits/dlx_queens.cpp
+  cbits/dxz_queens.cpp
+  cbits/*.h
   cbits/Makefile
 
 source-repository head
@@ -111,20 +112,15 @@ common test
   ghc-options: -threaded -rtsopts
   hs-source-dirs: test
 
-test-suite doctest
-  import: test
-  type: exitcode-stdio-1.0
-  main-is: doctest-main.hs
-  build-depends: doctest
-  build-tool-depends: doctest-discover:doctest-discover
-
 test-suite spec
   import: test
   type: exitcode-stdio-1.0
-  main-is: spec-main.hs
-  other-modules: Spec
+  main-is: spec.hs
+  other-modules:
+    Cover.DLXSpec
+    FD.MonadSpec
+    Prompt.IteratorSpec
   build-depends: hspec >= 2 && < 3
-  build-tool-depends: hspec-discover:hspec-discover
 
 test-suite queens
   import: test
