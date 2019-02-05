@@ -1,8 +1,5 @@
-{-# language LambdaCase #-}
 module Prompt.Iterator where
 
-import Data.Foldable
-import Data.Semigroup
 import Prompt.Class
 import Unaligned.Base
 

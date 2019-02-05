@@ -24,7 +24,6 @@ import Control.Monad.Reader
 import Control.Monad.State.Strict
 import Control.Monad.ST
 import Data.Default
-import FD.Var
 import Logic.Class
 import Logic.Reflection as Reflection
 import Par.Cont as Cont
