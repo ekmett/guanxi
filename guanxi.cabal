@@ -37,8 +37,14 @@ common base
   default-language: Haskell2010
   build-depends: base >= 4.12 && < 5
 
+common mtl
+  build-depends: mtl >= 2.2.2 && < 2.3,
+
+common primitive
+  build-depends: primitive
+
 library
-  import: base
+  import: base, mtl, primitive
   hs-source-dirs: src
 
   -- C++ bits
@@ -58,8 +64,6 @@ library
     ghc-prim,
     hashable,
     lens,
-    mtl                 >= 2.2.2 && < 2.3,
-    primitive,
     transformers        >= 0.5.5 && < 0.6,
     unordered-containers
 
@@ -114,14 +118,16 @@ common test
   hs-source-dirs: test
 
 test-suite spec
-  import: test
+  import: test, mtl, primitive
   type: exitcode-stdio-1.0
   main-is: spec.hs
   other-modules:
     Cover.DLXSpec
+    Domain.IntervalSpec
     FD.MonadSpec
     Prompt.IteratorSpec
-  build-depends: hspec >= 2 && < 3
+  build-depends:
+    hspec >= 2 && < 3,
 
 test-suite queens
   import: test
