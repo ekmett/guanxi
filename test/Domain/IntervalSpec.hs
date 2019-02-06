@@ -7,6 +7,7 @@
 
 module Domain.IntervalSpec where
 
+import Data.Foldable (traverse_)
 import Domain.Interval
 import FD.Monad
 import Test.Hspec
@@ -50,3 +51,128 @@ spec = do
             r `ltz` (-4)
             known input
         result `shouldBe` [Just 5]
+
+    describe "absi" $ do
+      it "passes through a positive number unchanged" $ do
+        let
+          result = run $ do
+            let input = abstract 20
+            output <- bottom
+            absi input output
+            known output
+        result `shouldBe` [Just 20]
+      it "negates a negative number" $ do
+        let
+          result = run $ do
+            let input = abstract (-30)
+            output <- bottom
+            absi input output
+            known output
+        result `shouldBe` [Just 30]
+
+    describe "comparisons" $ do
+      let
+        pair :: FD s (Interval (FD s))
+        pair = interval (Just 1) (Just 2)
+        knowns a b = (,) <$> known a <*> known b
+      it "[1..2] lt [1..2]" $ do
+        let
+          result = run $ do
+            x <- pair
+            y <- pair
+            x `lt` y
+            knowns x y
+        result `shouldBe` [(Just 1,Just 2)]
+      it "[1..2] gt [1..2]" $ do
+        let
+          result = run $ do
+            x <- pair
+            y <- pair
+            x `gt` y
+            knowns x y
+        result `shouldBe` [(Just 2,Just 1)]
+      it "[1] le [1..2]" $ do
+        let
+          result = run $ do
+            let x = abstract 1
+            y <- pair
+            x `le` y
+            knowns x y
+        result `shouldBe` [(Just 1, Nothing)]
+      it "[1..2] le [1]" $ do
+        let
+          result = run $ do
+            x <- pair
+            let y = abstract 1
+            x `le` y
+            knowns x y
+        result `shouldBe` [(Just 1, Just 1)]
+      it "1 ne [1..2]" $ do
+        let
+          result = run $ do
+            let x = abstract 1
+            y <- interval (Just 1) (Just 2)
+            x `ne` y
+            known y
+        result `shouldBe` [Just 2]
+      it "2 ne [1..2]" $ do
+        let
+          result = run $ do
+            let x = abstract 2
+            y <- interval (Just 1) (Just 2)
+            x `ne` y
+            known y
+        result `shouldBe` [Just 1]
+      it "[1..5] ne 1..5]" $ do
+        let
+          result = run $ do
+            input <- interval (Just 1) (Just 5)
+            output <- interval (Just 1) (Just 5)
+            input `ne` output
+            concrete output
+        result `shouldBe` [1,2,3,4,5]
+
+    -- Art of the Propagator section 6.3
+    describe "baker cooper fletcher miller and smith" $ do
+      it "finds a solution" $ do
+        let
+          result = run $ do
+            let
+              floors = interval (Just 1) (Just 5)
+              allDistinct [] = pure ()
+              allDistinct (x:xs) = traverse_ (ne x) xs *> allDistinct xs
+
+            -- make all tenants
+            b <- floors
+            c <- floors
+            f <- floors
+            m <- floors
+            s <- floors
+
+            -- Nobody lives on the same floor
+            allDistinct [b,c,f,m,s]
+
+            -- constraints
+            b `nez` 5
+            c `nez` 1
+            f `nez` 5
+            f `nez` 1
+            m `gt` c
+
+            -- cooper does not live directly above or below fletcher
+            -- smith does not live directly above or below fletcher
+            onceKnown f $ \i -> do
+              c `nez` (i+1)
+              c `nez` (i-1)
+              s `nez` (i+1)
+              s `nez` (i-1)
+            onceKnown c $ \i -> do
+              f `nez` (i+1)
+              f `nez` (i-1)
+            onceKnown s $ \i -> do
+              f `nez` (i+1)
+              f `nez` (i-1)
+
+            traverse concrete [b,c,f,m,s]
+
+        result `shouldBe` [[3,2,4,5,1]]
