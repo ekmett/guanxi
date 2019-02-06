@@ -21,6 +21,7 @@ extra-source-files:
   cbits/dlx_queens.cpp
   cbits/dxz_queens.cpp
   cbits/*.h
+  cbits/*.hpp
   cbits/Makefile
 
 source-repository head
