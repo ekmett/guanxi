@@ -75,6 +75,7 @@ library
     Cover.DLX
     Cover.DXZ
     Disjoint
+    Domain.Internal
     Domain.Interval
     Domain.Relational
     Equality

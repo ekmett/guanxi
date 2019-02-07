@@ -8,7 +8,7 @@
 module Domain.IntervalSpec where
 
 import Data.Foldable (traverse_)
-import Domain.Interval
+import Domain.Internal
 import FD.Monad
 import Test.Hspec
 
