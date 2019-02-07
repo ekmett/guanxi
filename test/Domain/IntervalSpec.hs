@@ -221,7 +221,7 @@ spec = do
         let
           result = run $ do
             x <- interval (Just 1) (Just 5)
-            x `lez` 6
+            x `lez` 0
             concrete x
         result `shouldBe` []
 
