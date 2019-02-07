@@ -75,11 +75,34 @@ spec = do
         pair :: FD s (Interval (FD s))
         pair = interval (Just 1) (Just 2)
         knowns a b = (,) <$> known a <*> known b
-      it "[1..2] lt [1..2]" $ do
+        concretes a b = (,) <$> concrete a <*> concrete b
+      it "[1..2] eq [1..2]" $ do
+        let
+          result = run $ do
+            x <- pair; y <- pair
+            x `eq` y
+            concretes x y
+        result `shouldBe` [(1,1), (2,2)]
+      it "[1] eq [1..2]" $ do
+        let
+          result = run $ do
+            let x = abstract 1
+            y <- pair
+            x `eq` y
+            knowns x y
+        result `shouldBe` [(Just 1, Just 1)]
+      it "[1..2] eq [2]" $ do
         let
           result = run $ do
             x <- pair
-            y <- pair
+            let y = abstract 2
+            x `eq` y
+            knowns x y
+        result `shouldBe` [(Just 2, Just 2)]
+      it "[1..2] lt [1..2]" $ do
+        let
+          result = run $ do
+            x <- pair; y <- pair
             x `lt` y
             knowns x y
         result `shouldBe` [(Just 1,Just 2)]
@@ -126,11 +149,82 @@ spec = do
       it "[1..5] ne 1..5]" $ do
         let
           result = run $ do
-            input <- interval (Just 1) (Just 5)
-            output <- interval (Just 1) (Just 5)
-            input `ne` output
-            concrete output
+            x <- interval (Just 1) (Just 5)
+            y <- interval (Just 1) (Just 5)
+            x `ne` y
+            concrete x
         result `shouldBe` [1,2,3,4,5]
+      it "3 zle [1..5]" $ do
+        let
+          result = run $ do
+            x <- interval (Just 1) (Just 5)
+            3 `zle` x
+            concrete x
+        result `shouldBe` [3,4,5]
+      it "1 zle [1..5]" $ do
+        let
+          result = run $ do
+            x <- interval (Just 1) (Just 5)
+            1 `zle` x
+            concrete x
+        result `shouldBe` [1,2,3,4,5]
+      it "5 zle [1..5]" $ do
+        let
+          result = run $ do
+            x <- interval (Just 1) (Just 5)
+            5 `zle` x
+            concrete x
+        result `shouldBe` [5]
+      it "6 zle [1..5]" $ do
+        let
+          result = run $ do
+            x <- interval (Just 1) (Just 5)
+            6 `zle` x
+            concrete x
+        result `shouldBe` []
+      it "0 zle [1..5]" $ do
+        let
+          result = run $ do
+            x <- interval (Just 1) (Just 5)
+            0 `zle` x
+            concrete x
+        result `shouldBe` [1,2,3,4,5]
+      it "[1..5] lez 3" $ do
+        let
+          result = run $ do
+            x <- interval (Just 1) (Just 5)
+            x `lez` 3
+            concrete x
+        result `shouldBe` [1,2,3]
+      it "[1..5] lez 1" $ do
+        let
+          result = run $ do
+            x <- interval (Just 1) (Just 5)
+            x `lez` 1
+            concrete x
+        result `shouldBe` [1]
+      it "[1..5] lez 5" $ do
+        let
+          result = run $ do
+            x <- interval (Just 1) (Just 5)
+            x `lez` 5
+            concrete x
+        result `shouldBe` [1,2,3,4,5]
+      it "[1..5] lez 6" $ do
+        let
+          result = run $ do
+            x <- interval (Just 1) (Just 5)
+            x `lez` 6
+            concrete x
+        result `shouldBe` [1,2,3,4,5]
+      it "[1..5] lez 0" $ do
+        let
+          result = run $ do
+            x <- interval (Just 1) (Just 5)
+            x `lez` 6
+            concrete x
+        result `shouldBe` []
+
 
     -- Art of the Propagator section 6.3
     describe "baker cooper fletcher miller and smith" $ do
