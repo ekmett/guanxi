@@ -154,6 +154,13 @@ spec = do
             x `ne` y
             concrete x
         result `shouldBe` [1,2,3,4,5]
+      it "[1..5] ne 5" $ do
+        let
+          result = run $ do
+            x <- interval (Just 1) (Just 5)
+            x `ne` abstract 5
+            concrete x
+        result `shouldBe` [1,2,3,4]
       it "3 zle [1..5]" $ do
         let
           result = run $ do
