@@ -37,6 +37,9 @@ common base
   default-language: Haskell2010
   build-depends: base >= 4.12 && < 5
 
+common data-default
+  build-depends: data-default
+
 common mtl
   build-depends: mtl >= 2.2.2 && < 2.3
 
@@ -44,7 +47,7 @@ common primitive
   build-depends: primitive
 
 library
-  import: base, mtl, primitive
+  import: base, data-default, mtl, primitive
   hs-source-dirs: src
 
   -- C++ bits
@@ -59,7 +62,6 @@ library
     comonad,
     containers,
     contravariant,
-    data-default,
     fingertree,
     ghc-prim,
     hashable,
@@ -117,6 +119,13 @@ common test
   build-depends: guanxi
   ghc-options: -threaded -rtsopts
   hs-source-dirs: test
+
+test-suite hedgehog
+  import: test, data-default
+  type: exitcode-stdio-1.0
+  main-is: hedgehog.hs
+  build-depends:
+    hedgehog ^>= 0.6.1
 
 test-suite spec
   import: test, mtl, primitive
