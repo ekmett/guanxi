@@ -126,6 +126,7 @@ test-suite spec
     Cover.DLXSpec
     Domain.IntervalSpec
     FD.MonadSpec
+    Logic.ReflectionSpec
     Prompt.IteratorSpec
   build-depends:
     hspec >= 2 && < 3,

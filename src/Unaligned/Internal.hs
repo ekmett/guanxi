@@ -86,7 +86,7 @@ pattern Snoc as a <- (unsnoc -> as :&: a) where
 --------------------------------------------------------------------------------
 
 newtype Rev f a = Rev { runRev :: f a }
-  deriving (Show, Functor)
+  deriving (Eq, Show, Functor)
 
 instance Default (f a) => Default (Rev f a) where
   def = Rev def
@@ -149,6 +149,7 @@ instance Singleton [] where
 --------------------------------------------------------------------------------
 
 data Q a = Q [a] (Rev [] a) [a]
+  deriving Eq
 
 {-# complete Nil, Cons :: Q #-}
 
@@ -205,7 +206,7 @@ rotate _ _ _ = error "Q.rotate: invariant broken"
 --------------------------------------------------------------------------------
 
 data Cat a = E | C a !(Q (Cat a))
-  deriving (Functor, Foldable, Traversable)
+  deriving (Eq, Functor, Foldable, Traversable)
 
 instance Show a => Show (Cat a) where
   showsPrec d = showsPrec d . Foldable.toList 

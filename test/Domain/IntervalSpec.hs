@@ -7,6 +7,7 @@
 
 module Domain.IntervalSpec where
 
+import Control.Applicative
 import Data.Foldable (traverse_)
 import Domain.Internal
 import FD.Monad
@@ -232,6 +233,17 @@ spec = do
             concrete x
         result `shouldBe` []
 
+    describe "<|>" $ do
+      it "left id" $ do
+        let
+          result = run $
+            pure 3 <|> empty
+        result `shouldBe` [3 :: Integer]
+      it "right id" $ do
+        let
+          result = run $
+            empty <|> pure 4
+        result `shouldBe` [4 :: Integer]
 
     -- Art of the Propagator section 6.3
     describe "baker cooper fletcher miller and smith" $ do
