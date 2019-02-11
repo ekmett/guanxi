@@ -190,7 +190,7 @@ instance Uncons Q where
   uncons _ = error "Q.uncons: invariants violated"
 
 instance Singleton Q where
-  singleton a = Q [a] nil nil
+  singleton a = Q [a] nil [a]
 
 instance Snoc Q where
   snoc (Q f r s) a = exec f (snoc r a) s
