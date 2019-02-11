@@ -17,6 +17,9 @@ module Unaligned.Internal
   , pattern Nil
   , pattern Cons
   , pattern Snoc
+  -- internal
+  , link
+  , linkAll
   ) where
 
 import Control.Applicative.Backwards
@@ -33,7 +36,7 @@ import GHC.Exts
 --------------------------------------------------------------------------------
 
 data View a b = Empty | a :&: b
-  deriving (Show, Functor, Foldable, Traversable)
+  deriving (Eq, Show, Functor, Foldable, Traversable)
 
 instance Default (View a b) where
   def = Empty
@@ -209,7 +212,7 @@ data Cat a = E | C a !(Q (Cat a))
   deriving (Eq, Functor, Foldable, Traversable)
 
 instance Show a => Show (Cat a) where
-  showsPrec d = showsPrec d . Foldable.toList 
+  showsPrec d = showsPrec d . Foldable.toList
 
 {-# complete Nil, C #-}
 {-# complete E, Cons #-}

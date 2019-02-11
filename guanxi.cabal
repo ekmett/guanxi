@@ -38,7 +38,7 @@ common base
   build-depends: base >= 4.12 && < 5
 
 common mtl
-  build-depends: mtl >= 2.2.2 && < 2.3,
+  build-depends: mtl >= 2.2.2 && < 2.3
 
 common primitive
   build-depends: primitive
@@ -128,6 +128,7 @@ test-suite spec
     FD.MonadSpec
     Logic.ReflectionSpec
     Prompt.IteratorSpec
+    Unaligned.BaseSpec
   build-depends:
     hspec >= 2 && < 3,
 
