@@ -37,6 +37,7 @@ module Signal
   , Signals
   , HasSignals(..)
   , ground
+  , grounding
   , propagate
   -- * implementation
   , HasSignalEnv(signalEnv)
@@ -116,11 +117,15 @@ instance HasSignals m (Signal m) where
 newSignal_ :: PrimMonad m => m (Signal m)
 newSignal_ = Signal <$> newUnique <*> newRef mempty
 
+grounding :: MonadSignal e m => m () -> m ()
+grounding strat = do
+  g <- view signalEnvGround
+  modifyRef' g (*> strat)
+
 newSignal :: MonadSignal e m => (Signal m -> m ()) -> m (Signal m)
 newSignal strat = do
   s <- newSignal_
-  g <- view signalEnvGround
-  s <$ modifyRef' g (*> strat s)
+  s <$ grounding (strat s)
 
 scope :: MonadSignal e m => m a -> m a
 scope m = do

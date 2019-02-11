@@ -66,8 +66,8 @@ instance (GUnified f, GUnified g) => GUnified (f :*: g) where
   gmerge f (a :*: b) (c :*: d) = (:*:) <$> gmerge f a c <*> gmerge f b d
 
 instance (GUnified f, GUnified g) => GUnified (f :+: g) where
-  gmerge f (L1 l) (L1 r) = L1 <$> gmerge f l r 
-  gmerge f (R1 l) (R1 r) = R1 <$> gmerge f l r 
+  gmerge f (L1 l) (L1 r) = L1 <$> gmerge f l r
+  gmerge f (R1 l) (R1 r) = R1 <$> gmerge f l r
   gmerge _ _ _ = empty
 
 instance (Unified f, GUnified g) => GUnified (f :.: g) where

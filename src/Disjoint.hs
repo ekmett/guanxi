@@ -20,7 +20,7 @@ import Ref
 
 data Content s
   = Root {-# unpack #-} !Int
-  | Child (Disjoint s)
+  | Child {-# unpack #-} !(Disjoint s)
 
 newtype Disjoint s = Disjoint { getDisjoint :: Ref s (Content s) }
   deriving Eq

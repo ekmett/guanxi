@@ -18,7 +18,7 @@ import Data.Bifoldable
 import Data.Bifunctor
 import Data.Bitraversable
 import Control.Applicative
-import Control.Monad (ap)
+import Control.Monad (ap, MonadPlus(..))
 
 data T s a = Proof a | Goal s | Failed
   deriving (Functor,Foldable,Traversable)
@@ -58,6 +58,10 @@ instance Alternative (Tactic g m) where
   m <|> n = Tactic $ \kp kf kc g ->
     runTactic m kp (runTactic n kp kf kc g) kc g
   empty = Tactic $ \_ kf _ _ -> kf
+
+instance MonadPlus (Tactic g m) where
+  mplus = (<|>)
+  mzero = empty
 
 repeatedly :: Tactic g m a -> Tactic g m a
 repeatedly t = t `fby` repeatedly t
