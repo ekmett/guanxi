@@ -25,7 +25,7 @@ spec = do
       it "known [1..5] = Nothing" $ do
         let
           result = run $
-            interval (Just 1) (Just 5) >>= known
+            1...5 >>= known
         result `shouldBe` [Nothing]
       it "known . abstract = Just" $ do
         let
@@ -37,7 +37,7 @@ spec = do
       it "negates an interval" $ do
         let
           result = run $ do
-            input <- interval (Just 1) (Just 5)
+            input <- 1...5
             r <- bottom
             negatei input r
             input `gtz` 4
@@ -46,7 +46,7 @@ spec = do
       it "propagates information backwards" $ do
         let
           result = run $ do
-            input <- interval (Just 1) (Just 5)
+            input <- 1...5
             r <- bottom
             negatei input r
             r `ltz` (-4)
@@ -74,7 +74,7 @@ spec = do
     describe "comparisons" $ do
       let
         pair :: FD s (Interval (FD s))
-        pair = interval (Just 1) (Just 2)
+        pair = 1...2
         knowns a b = (,) <$> known a <*> known b
         concretes a b = (,) <$> concrete a <*> concrete b
       it "[1..2] eq [1..2]" $ do
@@ -135,7 +135,7 @@ spec = do
         let
           result = run $ do
             let x = abstract 1
-            y <- interval (Just 1) (Just 2)
+            y <- 1...2
             x `ne` y
             known y
         result `shouldBe` [Just 2]
@@ -143,92 +143,92 @@ spec = do
         let
           result = run $ do
             let x = abstract 2
-            y <- interval (Just 1) (Just 2)
+            y <- 1...2
             x `ne` y
             known y
         result `shouldBe` [Just 1]
       -- it "[1..5] ne [1..5]" $ do
       --   let
       --     result = run $ do
-      --       x <- interval (Just 1) (Just 5)
-      --       y <- interval (Just 1) (Just 5)
+      --       x <- 1...5
+      --       y <- 1...5
       --       x `ne` y
       --       concrete x
       --   result `shouldBe` [1,2,3,4,5]
       it "[1..5] ne 5" $ do
         let
           result = run $ do
-            x <- interval (Just 1) (Just 5)
+            x <- 1...5
             x `ne` abstract 5
             concrete x
         result `shouldBe` [1,2,3,4]
       it "3 zle [1..5]" $ do
         let
           result = run $ do
-            x <- interval (Just 1) (Just 5)
+            x <- 1...5
             3 `zle` x
             concrete x
         result `shouldBe` [3,4,5]
       it "1 zle [1..5]" $ do
         let
           result = run $ do
-            x <- interval (Just 1) (Just 5)
+            x <- 1...5
             1 `zle` x
             concrete x
         result `shouldBe` [1,2,3,4,5]
       it "5 zle [1..5]" $ do
         let
           result = run $ do
-            x <- interval (Just 1) (Just 5)
+            x <- 1...5
             5 `zle` x
             known x
         result `shouldBe` [Just 5]
       it "6 zle [1..5]" $ do
         let
           result = run $ do
-            x <- interval (Just 1) (Just 5)
+            x <- 1...5
             6 `zle` x
             concrete x
         result `shouldBe` []
       it "0 zle [1..5]" $ do
         let
           result = run $ do
-            x <- interval (Just 1) (Just 5)
+            x <- 1...5
             0 `zle` x
             concrete x
         result `shouldBe` [1,2,3,4,5]
       it "[1..5] lez 3" $ do
         let
           result = run $ do
-            x <- interval (Just 1) (Just 5)
+            x <- 1...5
             x `lez` 3
             concrete x
         result `shouldBe` [1,2,3]
       it "[1..5] lez 1" $ do
         let
           result = run $ do
-            x <- interval (Just 1) (Just 5)
+            x <- 1...5
             x `lez` 1
             concrete x
         result `shouldBe` [1]
       it "[1..5] lez 5" $ do
         let
           result = run $ do
-            x <- interval (Just 1) (Just 5)
+            x <- 1...5
             x `lez` 5
             concrete x
         result `shouldBe` [1,2,3,4,5]
       it "[1..5] lez 6" $ do
         let
           result = run $ do
-            x <- interval (Just 1) (Just 5)
+            x <- 1...5
             x `lez` 6
             concrete x
         result `shouldBe` [1,2,3,4,5]
       it "[1..5] lez 0" $ do
         let
           result = run $ do
-            x <- interval (Just 1) (Just 5)
+            x <- 1...5
             x `lez` 0
             concrete x
         result `shouldBe` []
@@ -251,7 +251,7 @@ spec = do
         let
           result = run $ do
             let
-              floors = interval (Just 1) (Just 5)
+              floors = 1...5
               allDistinct [] = pure ()
               allDistinct (x:xs) = traverse_ (ne x) xs *> allDistinct xs
               notAdjacent a b = do
