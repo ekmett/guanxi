@@ -63,9 +63,13 @@ spec = do
         let result = observeAll $ pure 5 <|> empty
         result `shouldBe` [5 :: Integer]
       it "combining" $ do
-        let result = observeAll $ pure 7 <|> pure 8
+        let
+          result :: [Int]
+          result = observeAll $ pure 7 <|> pure 8
         result `shouldBe` [7,8]
       it "associativity" $ do
-        let result1 = observeAll $ (pure 1 <|> pure 2) <|> pure 3
-            result2 = observeAll $ pure 1 <|> (pure 2 <|> pure 3)
+        let
+          result1, result2 :: [Int]
+          result1 = observeAll $ (pure 1 <|> pure 2) <|> pure (3 :: Int)
+          result2 = observeAll $ pure 1 <|> (pure 2 <|> pure (3 :: Int))
         (result1, result2) `shouldBe` ([1,2,3], [1,2,3])
