@@ -2,9 +2,10 @@
 module Logic.ReflectionSpec where
 
 import Control.Applicative
+import Data.Functor.Identity
 import Logic.Reflection
 import Test.Hspec
-
+import Unaligned.Internal
 
 spec :: Spec
 spec = do
@@ -29,6 +30,31 @@ spec = do
           result = unview (view x)
         observeAll x `shouldBe` [1,2,3]
         observeAll result `shouldBe` [1,2,3]
+    describe "unview" $ do
+      it "unviews empty" $ do
+        let
+          x :: Identity (View Int (LogicT Identity Int)) -- L m a
+          x = pure Empty
+          result = unview x
+        observeAll result `shouldBe` []
+      it "unviews a singleton" $ do
+        let
+          x :: Identity (View Int (LogicT Identity Int))
+          x = pure (1 :&: empty)
+          result = unview x
+        observeAll result `shouldBe` [1]
+      it "unviews something with multiple elements" $ do
+        let
+          x :: Identity (View Int (LogicT Identity Int))
+          x = pure (1 :&: LogicT (singleton (pure (2 :&: empty))))
+          result = unview x
+        observeAll result `shouldBe` [1,2]
+      it "unviews the result of <>" $ do
+        let
+          x :: Identity (View Int (LogicT Identity Int))
+          x = pure (1 :&: (mempty <> LogicT (singleton (pure (2 :&: empty)))))
+          result = unview x
+        observeAll result `shouldBe` [1,2]
     describe "Logic <|>" $ do
       it "left id" $ do
         let result = observeAll $ empty <|> pure 6

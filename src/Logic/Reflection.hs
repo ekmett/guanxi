@@ -10,7 +10,7 @@
 -- Portability: non-portable
 
 module Logic.Reflection
-  ( LogicT
+  ( LogicT (LogicT) -- TODO internal
   , Logic
   , observe, observeMany, observeAll
   , observeT, observeManyT, observeAllT
