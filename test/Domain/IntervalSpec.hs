@@ -254,6 +254,13 @@ spec = do
               floors = interval (Just 1) (Just 5)
               allDistinct [] = pure ()
               allDistinct (x:xs) = traverse_ (ne x) xs *> allDistinct xs
+              notAdjascent a b = do
+                onceKnown a $ \i -> do
+                  b `nez` (i+1)
+                  b `nez` (i-1)
+                onceKnown b $ \i -> do
+                  a `nez` (i+1)
+                  a `nez` (i-1)
 
             -- make all tenants
             b <- floors
@@ -274,17 +281,8 @@ spec = do
 
             -- cooper does not live directly above or below fletcher
             -- smith does not live directly above or below fletcher
-            onceKnown f $ \i -> do
-              c `nez` (i+1)
-              c `nez` (i-1)
-              s `nez` (i+1)
-              s `nez` (i-1)
-            onceKnown c $ \i -> do
-              f `nez` (i+1)
-              f `nez` (i-1)
-            onceKnown s $ \i -> do
-              f `nez` (i+1)
-              f `nez` (i-1)
+            notAdjascent c f
+            notAdjascent s f
 
             traverse concrete [b,c,f,m,s]
 
