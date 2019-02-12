@@ -82,9 +82,7 @@ instance Monad m => Applicative (LogicT m) where
 
 instance Monad m => Alternative (LogicT m) where
   empty = LogicT mempty
-  -- is this the best version?
-  m <|> LogicT n = unview $
-    fmap (\(LogicT t) -> LogicT $ t <> n) <$> view m
+  LogicT m <|> LogicT n = LogicT (m <> n)
 
 instance Monad m => Monad (LogicT m) where
   m >>= f = unview $ view m >>= \case
