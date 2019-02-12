@@ -22,6 +22,7 @@ module Domain.Interval
   , ltz, lez, eqz, nez, gez, gtz
   , onceBoundedBelow, onceBoundedAbove
   , onceKnown
+  , from, to, (...)
   -- , poly
   , onHi, onLo
   , deltaHi, deltaLo
@@ -388,6 +389,15 @@ concrete :: MonadSignal e m => Interval m -> m Z
 concrete i = refine i >>= \case
   Nothing -> concrete i
   Just z -> pure z
+
+from :: MonadSignal e m => Z -> m (Interval m)
+from a = interval (Just a) Nothing
+
+to :: MonadSignal e m => Z -> m (Interval m)
+to b = interval Nothing (Just b)
+
+(...) :: MonadSignal e m => Z -> Z -> m (Interval m)
+a ... b = interval (Just a) (Just b)
 
 interval :: MonadSignal e m => Maybe Z -> Maybe Z -> m (Interval m)
 interval (Just lo) (Just hi)
