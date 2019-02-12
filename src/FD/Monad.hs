@@ -24,6 +24,7 @@ import Control.Monad.Reader
 import Control.Monad.State.Strict
 import Control.Monad.ST
 import Data.Default
+import Data.Word
 import Logic.Class
 import Logic.Reflection as Reflection
 import Par.Cont as Cont
@@ -57,3 +58,6 @@ runN n m = runST $ observeManyT n $ unFD m
 
 run :: (forall s. FD s a) -> [a]
 run m = runST $ observeAllT $ unFD m
+
+withMultiplicity :: FD s a -> FD s (a, Maybe Word64)
+withMultiplicity m = (,) <$> m <*> currentMultiplicity
