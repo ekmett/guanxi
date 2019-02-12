@@ -4,7 +4,6 @@
 module Main where
 
 import Control.Monad
-import Control.Monad.IO.Class
 import Data.Function (on)
 import GHC.Exts
 import Hedgehog
