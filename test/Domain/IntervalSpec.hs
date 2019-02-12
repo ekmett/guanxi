@@ -234,12 +234,12 @@ spec = do
         result `shouldBe` []
 
     describe "<|>" $ do
-      it "left id" $ do
+      it "right id" $ do
         let
           result = run $
             pure 3 <|> empty
         result `shouldBe` [3 :: Integer]
-      it "right id" $ do
+      it "left id" $ do
         let
           result = run $
             empty <|> pure 4
