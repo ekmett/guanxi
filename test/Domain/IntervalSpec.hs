@@ -254,7 +254,7 @@ spec = do
               floors = interval (Just 1) (Just 5)
               allDistinct [] = pure ()
               allDistinct (x:xs) = traverse_ (ne x) xs *> allDistinct xs
-              notAdjascent a b = do
+              notAdjacent a b = do
                 onceKnown a $ \i -> do
                   b `nez` (i+1)
                   b `nez` (i-1)
@@ -281,8 +281,8 @@ spec = do
 
             -- cooper does not live directly above or below fletcher
             -- smith does not live directly above or below fletcher
-            notAdjascent c f
-            notAdjascent s f
+            notAdjacent c f
+            notAdjacent s f
 
             traverse concrete [b,c,f,m,s]
 
