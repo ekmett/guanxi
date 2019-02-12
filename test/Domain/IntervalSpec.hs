@@ -147,7 +147,7 @@ spec = do
             x `ne` y
             known y
         result `shouldBe` [Just 1]
-      it "[1..5] ne 1..5]" $ do
+      it "[1..5] ne [1..5]" $ do
         let
           result = run $ do
             x <- interval (Just 1) (Just 5)
@@ -181,8 +181,8 @@ spec = do
           result = run $ do
             x <- interval (Just 1) (Just 5)
             5 `zle` x
-            concrete x
-        result `shouldBe` [5]
+            known x
+        result `shouldBe` [Just 5]
       it "6 zle [1..5]" $ do
         let
           result = run $ do
