@@ -358,7 +358,7 @@ refine i = range i >>= \case
   (Just lo, Nothing)
      | lo >= 0   -> cut (2*lo) (0    <$ guard (lo ==  0)) Nothing
      | otherwise -> cut (-1)   ((-1) <$ guard (lo == -1)) Nothing
-  (Nothing, Just hi) -> cut (if hi < 0 then 2*hi else -1) Nothing ((-1) <$ guard (hi == -1))
+  (Nothing, Just hi) -> cut (if hi < 0 then 2*hi else -1) Nothing ((-1) <$ guard (hi == -1)) -- TODO: put finite interval first
   (Nothing, Nothing) -> cut (-1) Nothing Nothing
  where cut m p q = p <$ lez i m
                <|> q <$ gtz i m
@@ -369,6 +369,15 @@ concrete :: MonadSignal e m => Interval m -> m Z
 concrete i = refine i >>= \case
   Nothing -> concrete i
   Just z -> pure z
+
+from :: MonadSignal e m => Z -> m (Interval m)
+from a = interval (Just a) Nothing
+
+to :: MonadSignal e m => Z -> m (Interval m)
+to b = interval Nothing (Just b)
+
+(...) :: MonadSignal e m => Z -> Z -> m (Interval m)
+a ... b = interval (Just a) (Just b)
 
 interval :: MonadSignal e m => Maybe Z -> Maybe Z -> m (Interval m)
 interval (Just lo) (Just hi)
@@ -381,13 +390,15 @@ interval mlo mhi = do
   let simple (Left Nil) = True
       simple Right{} = True
       simple _ = False
-  let i = Interval mempty ref
+      count (Right a) (Right b) = multiplicity (b - a + 1)
+      count _ _ = infiniteMultiplicity
+      i = Interval mempty ref
   grounding $ fix $ \loop ->
     findRef ref >>= \case
       (_, r, _)
-         | Nil <- rlop r, Nil <- rhip r, Nil <- rcov r, simple (rlo r), simple (rhi r) -> pure () -- nobody cares, so don't
-         -- TODO: properly report multiplicity of the solution
-         | otherwise -> refine i >>= maybe loop (const $ pure ())
+          -- nobody is listening, so don't bother to enumerate, just track the multiplicity
+          | Nil <- rlop r, Nil <- rhip r, Nil <- rcov r, x <- rlo r, y <- rhi r, simple x, simple y -> count x y
+          | otherwise -> refine i >>= maybe loop (const $ pure ())
   pure i
 
 -- bottom = [-infinity,infinity], a fresh interval
@@ -409,12 +420,6 @@ le i j = do
 lt i (Concrete b) = lez i (b-1)
 lt (Concrete a) i = zle (a+1) i
 
--- i need to know if the
---
--- i = p(q(croot))
--- j = n(r(droot))
--- croot = q^-1(p^-1(n(r(droot)
--- croot = t(droot)
 lt i@(Interval p c) j@(Interval n d) = do
   (q,_,croot) <- findRef c
   (r,_,droot) <- findRef d

@@ -57,3 +57,6 @@ runN n m = runST $ observeManyT n $ unFD m
 
 run :: (forall s. FD s a) -> [a]
 run m = runST $ observeAllT $ unFD m
+
+withMultiplicity :: FD s a -> FD s (a, Maybe Integer)
+withMultiplicity m = (,) <$> m <*> currentMultiplicity

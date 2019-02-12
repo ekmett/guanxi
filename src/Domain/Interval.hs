@@ -13,6 +13,7 @@ module Domain.Interval
   , ltz, lez, eqz, nez, gez, gtz
   , onceBoundedBelow, onceBoundedAbove
   , onceKnown
+  , from, to, (...)
   -- , poly
   , onHi, onLo
   , deltaHi, deltaLo

@@ -22,7 +22,7 @@
 {-# language ConstraintKinds #-}
 
 -- |
--- Copyright :  (c) Edward Kmett 2018
+-- Copyright :  (c) Edward Kmett 2018-2019
 -- License   :  BSD-2-Clause OR Apache-2.0
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>
 -- Stability :  experimental
@@ -39,22 +39,25 @@ module Signal
   , ground
   , grounding
   , propagate
+  , multiplicity -- report an externally indistinguishable result multiple times
+  , infiniteMultiplicity
+  , currentMultiplicity
   -- * implementation
   , HasSignalEnv(signalEnv)
   , SignalEnv
   , newSignalEnv
   ) where
 
-import Control.Monad (unless)
+import Control.Monad (unless, guard)
 import Control.Monad.Primitive
 import Control.Monad.Reader.Class
 import Control.Lens
 import Data.Foldable as Foldable
 import Data.Function (on)
 import Data.Hashable
+import Data.HashSet as HashSet -- HashSet?
 import Data.Kind
 import Data.Proxy
-import Data.HashSet as HashSet -- HashSet?
 import Ref
 import Unique
 
@@ -96,9 +99,10 @@ instance Hashable (Signal m) where
   hashWithSalt d = hashWithSalt d . signalId
 
 data SignalEnv m = SignalEnv
-  { _signalEnvSafety  :: !Bool
-  , _signalEnvPending :: !(RefM m (Propagators m)) -- pending propagators
-  , _signalEnvGround  :: !(RefM m (m ())) -- final grounding action
+  { _signalEnvSafety    :: !Bool
+  , _signalEnvPending   :: !(RefM m (Propagators m)) -- pending propagators
+  , _signalEnvGround    :: !(RefM m (m ())) -- final grounding action
+  , _signalMultiplicity :: !(RefM m Integer) -- count of occurrences of a given solution
   }
 
 makeClassy ''SignalEnv
@@ -106,7 +110,7 @@ makeClassy ''SignalEnv
 type MonadSignal e m = (MonadRef m, MonadReader e m, HasSignalEnv e m)
 
 newSignalEnv :: (PrimMonad n, Monad m, PrimState m ~ PrimState n) => n (SignalEnv m)
-newSignalEnv = SignalEnv False <$> newRef mempty <*> newRef (pure ())
+newSignalEnv = SignalEnv False <$> newRef mempty <*> newRef (pure ()) <*> newRef 1
 
 instance (s ~ PrimState m) => Reference s (Propagators m) (Signal m) where
   reference = signalReference
@@ -116,6 +120,25 @@ instance HasSignals m (Signal m) where
 
 newSignal_ :: PrimMonad m => m (Signal m)
 newSignal_ = Signal <$> newUnique <*> newRef mempty
+
+infiniteMultiplicity :: MonadSignal e m => m ()
+infiniteMultiplicity = do
+  mult <- view signalMultiplicity 
+  writeRef mult 0 -- abuse 0 * anything = 0 = anything * 0 to use 0 as infinity
+
+multiplicity :: MonadSignal e m => Integer -> m ()
+multiplicity n = do
+  guard (n /= 0) -- blow up now, we're _actually_ repeating 0 times
+  mult <- view signalMultiplicity
+  modifyRef mult (*n)
+
+-- returns the current multiplicity as Nothing if the current solution is repeated an infinite number of times
+-- and Just n if the current solution is going to be repeated n times.
+currentMultiplicity :: MonadSignal e m => m (Maybe Integer)
+currentMultiplicity = do
+  mult <- view signalMultiplicity
+  n <- readRef mult
+  pure $ n <$ guard (n /= 0)
 
 grounding :: MonadSignal e m => m () -> m ()
 grounding strat = do
@@ -130,7 +153,7 @@ newSignal strat = do
 scope :: MonadSignal e m => m a -> m a
 scope m = do
     a <- local (signalEnvSafety .~ True) m
-    SignalEnv s p _ <- view signalEnv
+    SignalEnv s p _ _ <- view signalEnv
     a <$ unless s (go p)
   where
     go p = do
