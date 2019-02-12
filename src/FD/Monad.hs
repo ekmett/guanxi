@@ -25,11 +25,11 @@ import Control.Monad.State.Strict
 import Control.Monad.ST
 import Data.Default
 import Logic.Class
-import Logic.Reflection as Reflection
+import Logic.Cont as Cont
 import Par.Cont as Cont
 import Signal
 
-type FD' s = ReaderT (SignalEnv (FD s)) (Reflection.LogicT (ST s))
+type FD' s = ReaderT (SignalEnv (FD s)) (Cont.LogicT (ST s))
 
 type M = FD
 
