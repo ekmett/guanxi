@@ -36,7 +36,6 @@ import Data.Bifunctor
 import Data.Functor
 import Data.Foldable
 import Data.Monoid
-import Data.Word
 import Group
 import Ref
 import Signal
@@ -401,8 +400,8 @@ interval mlo mhi = do
   let simple (Left Nil) = True
       simple Right{} = True
       simple _ = False
-      count (Right a) (Right b) = multiplicity $ fromIntegral $ min (b - a + 1) (toInteger (maxBound :: Word64))
-      count _ _ = multiplicity maxBound 
+      count (Right a) (Right b) = multiplicity (b - a + 1)
+      count _ _ = infiniteMultiplicity
       i = Interval mempty ref
   grounding $ fix $ \loop ->
     findRef ref >>= \case

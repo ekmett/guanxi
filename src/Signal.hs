@@ -40,6 +40,7 @@ module Signal
   , grounding
   , propagate
   , multiplicity -- report an externally indistinguishable result multiple times
+  , infiniteMultiplicity
   , currentMultiplicity
   -- * implementation
   , HasSignalEnv(signalEnv)
@@ -57,7 +58,6 @@ import Data.Hashable
 import Data.HashSet as HashSet -- HashSet?
 import Data.Kind
 import Data.Proxy
-import Data.Word
 import Ref
 import Unique
 
@@ -102,7 +102,7 @@ data SignalEnv m = SignalEnv
   { _signalEnvSafety    :: !Bool
   , _signalEnvPending   :: !(RefM m (Propagators m)) -- pending propagators
   , _signalEnvGround    :: !(RefM m (m ())) -- final grounding action
-  , _signalMultiplicity :: !(RefM m Word64) -- count of occurrences of a given solution
+  , _signalMultiplicity :: !(RefM m Integer) -- count of occurrences of a given solution
   }
 
 makeClassy ''SignalEnv
@@ -121,20 +121,24 @@ instance HasSignals m (Signal m) where
 newSignal_ :: PrimMonad m => m (Signal m)
 newSignal_ = Signal <$> newUnique <*> newRef mempty
 
--- used by Domain.Interval for partially grounded results
-multiplicity :: MonadSignal e m => Word64 -> m ()
+infiniteMultiplicity :: MonadSignal e m => m ()
+infiniteMultiplicity = do
+  mult <- view signalMultiplicity 
+  writeRef mult 0 -- abuse 0 * anything = 0 = anything * 0 to use 0 as infinity
+
+multiplicity :: MonadSignal e m => Integer -> m ()
 multiplicity n = do
-  guard (n /= 0) -- blow up now
+  guard (n /= 0) -- blow up now, we're _actually_ repeating 0 times
   mult <- view signalMultiplicity
-  modifyRef mult $ \m -> let mn = m*n in if mn < m then maxBound else mn -- saturated multiplication
+  modifyRef mult (*n)
 
 -- returns the current multiplicity as Nothing if the current solution is repeated an infinite number of times
 -- and Just n if the current solution is going to be repeated n times.
-currentMultiplicity :: MonadSignal e m => m (Maybe Word64)
+currentMultiplicity :: MonadSignal e m => m (Maybe Integer)
 currentMultiplicity = do
   mult <- view signalMultiplicity
   n <- readRef mult
-  pure $ n <$ guard (n /= maxBound)
+  pure $ n <$ guard (n /= 0)
 
 grounding :: MonadSignal e m => m () -> m ()
 grounding strat = do
