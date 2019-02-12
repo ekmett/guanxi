@@ -11,6 +11,7 @@ module Relative.Base
   , Q
   , Cat
   , Rev(..)
+  , plus
   , pattern Nil
   , pattern Cons
   , pattern Snoc

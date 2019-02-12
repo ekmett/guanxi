@@ -11,6 +11,7 @@ import Control.Applicative
 import Data.Foldable (traverse_)
 import Domain.Internal
 import FD.Monad
+import Relative.Base (plus)
 import Test.Hspec
 
 spec :: Spec
@@ -254,13 +255,7 @@ spec = do
               floors = 1...5
               allDistinct [] = pure ()
               allDistinct (x:xs) = traverse_ (ne x) xs *> allDistinct xs
-              notAdjacent a b = do
-                onceKnown a $ \i -> do
-                  b `nez` (i+1)
-                  b `nez` (i-1)
-                onceKnown b $ \i -> do
-                  a `nez` (i+1)
-                  a `nez` (i-1)
+              notAdjacent a b = a `lt` plus b (-1) <|> a `gt` plus b 1
 
             -- make all tenants
             b <- floors

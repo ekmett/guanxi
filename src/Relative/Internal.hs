@@ -8,6 +8,7 @@ module Relative.Internal
   ( Unit(..)
   , Aff(..), utimes
   , Relative(..)
+  , plus
   , RelativeSemigroup
   , RelativeMonoid
   , View(..) -- re-export
@@ -80,6 +81,9 @@ instance Relative a => Relative (Maybe a) where
 
 instance Relative Integer where
   rel (Aff a b) x = utimes a x + b
+
+plus :: Relative a => a -> Integer -> a
+plus r n = rel (Aff One n) r
 
 -- rel d (a <> b) = rel d a <> rel d b
 class (Relative a, Semigroup a) => RelativeSemigroup a where
