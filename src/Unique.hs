@@ -7,7 +7,8 @@
 -- Maintainer:  Edward Kmett <ekmett@gmail.com>
 -- Stability :  experimental
 -- Portability: non-portable
-
+--
+-- Fast unique symbols
 module Unique
   ( Unique, UniqueM
   , newUnique
