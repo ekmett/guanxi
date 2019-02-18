@@ -29,4 +29,4 @@ dxz_queens: dxz_queens.o dxz.o
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o dxz_queens $^ $(LDLIBS)
 
 %.o: %.cpp
-	$(CC) $(CXXFLAGS) -c $<
+	$(CXX) $(CXXFLAGS) -c $<
