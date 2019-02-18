@@ -161,7 +161,7 @@ item dlx::best_item() const noexcept {
 }
 
 void dlx::reset() noexcept {
-  for (auto i=stack.size()-1;i >= 0;--i) unpick(stack[i]);
+  for (auto i=stack.size(); i-- > 0;) unpick(stack[i]);
   result.clear();
   stack.clear();
   current_state = state::guessing;
