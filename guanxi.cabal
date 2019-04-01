@@ -130,7 +130,7 @@ test-suite hedgehog
 test-suite spec
   import: test, mtl, primitive
   type: exitcode-stdio-1.0
-  main-is: test/spec.hs
+  main-is: spec.hs
   other-modules:
     Spec.Cover.DLX
     Spec.Domain.Interval
@@ -144,4 +144,4 @@ test-suite spec
 test-suite queens
   import: test
   type: exitcode-stdio-1.0
-  main-is: test/queens.hs
+  main-is: queens.hs
