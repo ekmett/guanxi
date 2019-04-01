@@ -120,6 +120,14 @@ common test
   ghc-options: -threaded -rtsopts
   hs-source-dirs: test
 
+test-suite doctests
+  import: test
+  buildable: False
+  type: exitcode-stdio-1.0
+  main-is: doctest-main.hs
+  build-depends: doctest
+  build-tool-depends: doctest-discover:doctest-discover
+
 test-suite hedgehog
   import: test, data-default
   type: exitcode-stdio-1.0
