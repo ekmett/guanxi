@@ -5,7 +5,7 @@
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
 
-module Domain.IntervalSpec where
+module Spec.Domain.Interval where
 
 import Control.Applicative
 import Data.Foldable (traverse_)

@@ -1,5 +1,5 @@
 {-# language LambdaCase #-}
-module Prompt.IteratorSpec where
+module Spec.Prompt.Iterator where
 
 import Data.Semigroup
 import Data.Foldable

@@ -1,5 +1,5 @@
 {-# language OverloadedLists #-}
-module Unaligned.BaseSpec where
+module Spec.Unaligned.Base where
 
 import Data.Foldable
 import Test.Hspec

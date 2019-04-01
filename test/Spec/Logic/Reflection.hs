@@ -1,5 +1,5 @@
 {-# language OverloadedLists #-}
-module Logic.ReflectionSpec where
+module Spec.Logic.Reflection where
 
 import Control.Applicative
 import Data.Functor.Identity

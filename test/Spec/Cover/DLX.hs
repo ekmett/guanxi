@@ -1,4 +1,4 @@
-module Cover.DLXSpec where
+module Spec.Cover.DLX where
 
 import Cover.DLX
 import Data.IORef

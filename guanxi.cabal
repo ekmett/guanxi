@@ -123,25 +123,25 @@ common test
 test-suite hedgehog
   import: test, data-default
   type: exitcode-stdio-1.0
-  main-is: hedgehog.hs
+  main-is: hedgehog-main.hs
   build-depends:
     hedgehog ^>= 0.6.1
 
 test-suite spec
   import: test, mtl, primitive
   type: exitcode-stdio-1.0
-  main-is: spec.hs
+  main-is: test/spec.hs
   other-modules:
-    Cover.DLXSpec
-    Domain.IntervalSpec
-    FD.MonadSpec
-    Logic.ReflectionSpec
-    Prompt.IteratorSpec
-    Unaligned.BaseSpec
+    Spec.Cover.DLX
+    Spec.Domain.Interval
+    Spec.FD.Monad
+    Spec.Logic.Reflection
+    Spec.Prompt.Iterator
+    Spec.Unaligned.Base
   build-depends:
-    hspec >= 2 && < 3,
+    hspec >= 2 && < 3
 
 test-suite queens
   import: test
   type: exitcode-stdio-1.0
-  main-is: queens.hs
+  main-is: test/queens.hs
