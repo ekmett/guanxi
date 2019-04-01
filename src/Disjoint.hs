@@ -30,6 +30,9 @@ type DisjointM m = Disjoint (PrimState m)
 instance Reference s (Content s) (Disjoint s) where
   reference = getDisjoint
 
+newDisjoint :: MonadRef m => m (DisjointM m)
+newDisjoint = Disjoint <$> newRef (Root 0)
+
 -- return rank as well as result
 findEx :: MonadRef m => DisjointM m -> m (Int, DisjointM m)
 findEx d = readRef d >>= \case
