@@ -138,16 +138,18 @@ test-suite hedgehog
 test-suite spec
   import: test, mtl, primitive
   type: exitcode-stdio-1.0
-  main-is: spec.hs
+  main-is: spec-main.hs
   other-modules:
-    Spec.Cover.DLX
-    Spec.Domain.Interval
-    Spec.FD.Monad
-    Spec.Logic.Reflection
-    Spec.Prompt.Iterator
-    Spec.Unaligned.Base
+    Cover.DLXSpec
+    Domain.IntervalSpec
+    FD.MonadSpec
+    Logic.ReflectionSpec
+    Prompt.IteratorSpec
+    Unaligned.BaseSpec
   build-depends:
     hspec >= 2 && < 3
+  build-tool-depends:
+    hspec-discover:hspec-discover
 
 test-suite queens
   import: test

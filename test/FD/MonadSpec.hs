@@ -1,6 +1,6 @@
 {-# language OverloadedLists #-}
 
-module Spec.FD.Monad where
+module FD.MonadSpec where
 
 import FD.Monad
 import FD.Var
