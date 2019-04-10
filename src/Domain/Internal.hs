@@ -271,6 +271,12 @@ no :: Unit -> a -> a -> a
 no One x _ = x
 no NegativeOne _ y = y
 
+inside :: MonadRef m => Either (Ps m) Z -> Either (Ps m) Z -> Z -> Bool
+inside (Right lo) (Right hi) z = lo <= z && z <= hi
+inside (Left _) (Right hi) z = z <= hi
+inside (Right lo) (Left _) z = lo <= z
+inside (Left _) (Left _) _ = True
+
 -- this is a special case when we go to define 'addition' and only two of the entries are non-constant
 -- and is implemented by union-find rather than propagation
 -- union x f y means x := f(y), y = (f^-1)(x)
@@ -279,9 +285,34 @@ eqRef x d y = do
   (xd, R xrank xlo xhi xlop xhip xcov, xroot) <- findRef x
   (yd, R yrank ylo yhi ylop yhip ycov, yroot) <- findRef y
   -- xroot = t(yroot)
-  let t@(Aff u _) = inv xd <> d <> yd
+  -- o(xroot) = yroot
+  let t@(Aff u k) = inv xd <> d <> yd
       o = inv t
-  if xrank < yrank then do
+  if xroot == yroot then do
+    let zlop = no u ylop yhip
+        zhip = no u yhip ylop
+        (todo,  xlo') = maxx zlop xlop t (no u ylo yhi) xlo
+        (todo', xhi') = minx zhip xhip t (no u yhi ylo) xhi
+    case u of
+      -- eg. x = -x+4 --> x must be 2
+      NegativeOne -> do
+        let solution = k `div` 2
+            result = mkR (yrank+1) (Right solution) (Right solution) nil nil nil
+        guard $ even k && inside xlo' xhi' solution
+        writeRef xroot $ Root result
+        runPs (todo <> todo') xroot
+        runKs (rel t ycov <> xcov) solution
+      -- x = x+c --> c must be zero
+      One -> do
+        guard $ k == 0
+        let result = mkR (yrank+1) xlo' xhi' (xlop <> rel t zlop)
+              (xhip <> rel t zhip) (xcov <> rel t ycov)
+        writeRef xroot $ Root result
+        runPs (todo <> todo') xroot
+        case covered result of
+          Just z -> runKs (rel t ycov <> xcov) z
+          Nothing -> pure ()
+  else if xrank < yrank then do
     writeRef xroot $ Child t yroot
     let zlop = no u xlop xhip
         zhip = no u xhip xlop
