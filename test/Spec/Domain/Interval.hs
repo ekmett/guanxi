@@ -116,6 +116,96 @@ spec = do
       --       x `gt` y
       --       knowns x y
       --   result `shouldBe` [(Just 2,Just 1)]
+      it "x = x+4" $ do
+        let
+          result = run $ do
+            x <- 1...5
+            x `eq` (x `plus` 4)
+            concrete x
+        result `shouldBe` []
+      it "x+4 = x" $ do
+        let
+          result = run $ do
+            x <- 1...5
+            (x `plus` 4) `eq` x
+            concrete x
+        result `shouldBe` []
+      it "x+3 = x+3" $ do
+        let
+          result = run $ do
+            input <- 0...5
+            let added = input `plus` 3
+            eq added added
+            concrete added
+        result `shouldBe` [3,4,5,6,7,8]
+      it "x = -x overlapping" $ do
+        let
+          result = run $ do
+            input <- (-3)...4
+            negd <- bottom
+            negatei input negd
+            eq input negd
+            (,) <$> concrete input <*> concrete negd
+        result `shouldBe` [(0,0)]
+      it "x = -x non-overlaping" $ do
+        let
+          result = run $ do
+            input <- 2...5
+            negd <- bottom
+            negatei input negd
+            eq input negd
+            (,) <$> concrete input <*> concrete negd
+        result `shouldBe` []
+      it "x = -x+5 (odd case) (no integer solution)" $ do
+        let
+          result = run $ do
+            input <- 2...5 --solution is 2.5
+            negd <- bottom
+            negatei input negd
+            let added = negd `plus` 5
+            eq input added
+            (,) <$> concrete input <*> concrete added
+        result `shouldBe` []
+      it "x = -x+4 (even case) with solution" $ do
+        let
+          result = run $ do
+            input <- 1...5 --solution is 2
+            negd <- bottom
+            negatei input negd
+            let added = negd `plus` 4
+            eq input added
+            (,) <$> concrete input <*> concrete added
+        result `shouldBe` [(2,2)]
+      it "-x+4 = x (even case) with solution" $ do
+        let
+          result = run $ do
+            input <- 1...5 --solution is 2
+            negd <- bottom
+            negatei input negd
+            let added = negd `plus` 4
+            eq added input
+            (,) <$> concrete input <*> concrete added
+        result `shouldBe` [(2,2)]
+      it "x-4 = -x (even case) with solution" $ do
+        let
+          result = run $ do
+            input <- 1...5 --solution is 2
+            negd <- bottom
+            negatei input negd
+            let added = input `plus` (-4)
+            eq added negd
+            (,) <$> concrete negd <*> concrete added
+        result `shouldBe` [(-2,-2)]
+      it "x = -x+4 (even case) without solution" $ do
+        let
+          result = run $ do
+            input <- 3...5 --solution is 2
+            negd <- bottom
+            negatei input negd
+            let added = negd `plus` 4
+            eq input added
+            (,) <$> concrete input <*> concrete added
+        result `shouldBe` []
       it "[1] le [1..2]" $ do
         let
           result = run $ do
