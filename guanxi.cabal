@@ -133,7 +133,7 @@ test-suite hedgehog
   type: exitcode-stdio-1.0
   main-is: hedgehog-main.hs
   build-depends:
-    hedgehog ^>= 0.6.1
+    hedgehog >= 0.6.1 && < 1.1
 
 test-suite spec
   import: test, mtl, primitive
