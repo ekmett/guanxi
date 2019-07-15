@@ -56,6 +56,8 @@ instance Group Unit where
   invert = id
   pow = flip stimes
 
+instance Abelian Unit
+
 data Aff = Aff !Unit !Integer
 
 -- group action 
