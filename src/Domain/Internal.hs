@@ -16,8 +16,8 @@ import Control.Monad.Fix
 import Data.Bifunctor
 import Data.Functor
 import Data.Foldable
+import Data.Group
 import Data.Monoid
-import Group
 import Ref
 import Signal
 import Relative.Internal as R
@@ -115,7 +115,7 @@ zle b (Interval m c) = do
   let md = m<>d
   case md of
     Aff One _ -> do
-      let lo' = rel (inv md) b
+      let lo' = rel (invert md) b
       for_ ohi $ \hi -> guard (lo' <= hi) -- check we're not empty
       case olo of
         Left ps -> do
@@ -131,7 +131,7 @@ zle b (Interval m c) = do
             Right x | x == lo' -> runKs cov lo'
             _ -> pure ()
     Aff NegativeOne _ -> do
-      let hi' = rel (inv md) b
+      let hi' = rel (invert md) b
       for_ olo $ \lo -> guard (lo <= hi') -- check we're not empty
       case ohi of
         Left qs -> do
@@ -166,7 +166,7 @@ eqz (Concrete a) b = guard (a == b)
 eqz (Interval m c) b = do
   (d, R rank olo ohi lop hip cov, croot) <- findRef c
   let md = m<>d
-  let b' = rel (inv md) b
+  let b' = rel (invert md) b
   ps <- case olo of
     Right lo -> case compare lo b' of
       LT -> pure lop
@@ -286,8 +286,8 @@ eqRef x d y = do
   (yd, R yrank ylo yhi ylop yhip ycov, yroot) <- findRef y
   -- xroot = t(yroot)
   -- o(xroot) = yroot
-  let t@(Aff u k) = inv xd <> d <> yd
-      o = inv t
+  let t@(Aff u k) = invert xd <> d <> yd
+      o = invert t
   if xroot == yroot then do
     let zlop = no u ylop yhip
         zhip = no u yhip ylop
@@ -454,7 +454,7 @@ lt (Concrete a) i = zle (a+1) i
 lt i@(Interval p c) j@(Interval n d) = do
   (q,_,croot) <- findRef c
   (r,_,droot) <- findRef d
-  let t = inv (p <> q) <> n <> r
+  let t = invert (p <> q) <> n <> r
   case t of
     Aff One k -> guard (croot /= droot || k < 0)
     _ -> pure ()
@@ -463,7 +463,7 @@ lt i@(Interval p c) j@(Interval n d) = do
 
 eq (Concrete a) i = eqz i a
 eq i (Concrete b) = eqz i b
-eq (Interval p x) (Interval q y) = eqRef x (inv p <> q) y
+eq (Interval p x) (Interval q y) = eqRef x (invert p <> q) y
 
 ge = flip le
 gt = flip lt
@@ -478,7 +478,7 @@ ne (Concrete a) i = nez i a
 ne i@(Interval p c) j@(Interval n d) = do
   (p',_,croot) <- findRef c
   (n',_,droot) <- findRef d
-  let t = inv p' <> inv p <> n <> n'
+  let t = invert p' <> invert p <> n <> n'
   case t of
     Aff One k | croot == droot -> guard (k /= 0)
     Aff One _ -> do

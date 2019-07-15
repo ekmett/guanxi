@@ -63,6 +63,7 @@ library
     containers,
     contravariant,
     fingertree,
+    groups              >= 0.4 && < 0.5,
     ghc-prim,
     hashable,
     lens,
@@ -83,7 +84,6 @@ library
     Equality
     FD.Monad
     FD.Var
-    Group
     Key
     Key.Coercible
     Log

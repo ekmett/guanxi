@@ -29,8 +29,9 @@ module Relative.Internal
   ) where
 
 import Data.Default
+import Data.Group
+import Data.Semigroup (Semigroup(stimes))
 import GHC.Exts as Exts
-import Group
 import Unaligned.Internal (View(..), Rev(..))
 
 --------------------------------------------------------------------------------
@@ -44,11 +45,18 @@ instance Semigroup Unit where
   x <> One = x
   NegativeOne <> NegativeOne = One
 
+  stimes _ One = One
+  stimes e NegativeOne | even e = One
+                       | otherwise = NegativeOne
+
 instance Monoid Unit where
   mempty = One
 
 instance Group Unit where
-  inv = id
+  invert = id
+  pow = flip stimes
+
+instance Abelian Unit
 
 data Aff = Aff !Unit !Integer
 
@@ -60,6 +68,8 @@ utimes NegativeOne = negate
 -- a(bx+c)+d = (ab)x + ac+d
 instance Semigroup Aff where
   Aff a d <> Aff b c = Aff (a<>b) (utimes a c + d)
+  stimes e (Aff One x) = Aff One (toInteger e * x)
+  stimes e (Aff NegativeOne x) = Aff (stimes e NegativeOne) $ if even e then 0 else x
 
 instance Monoid Aff where
   mempty = Aff One 0
@@ -70,7 +80,8 @@ instance Monoid Aff where
 -- (a^-1)y-(a^-1)b = x
 
 instance Group Aff where
-  inv (Aff a b) = Aff (inv a) (negate $ inv a `utimes` b)
+  invert (Aff a b) = Aff (invert a) (negate $ invert a `utimes` b)
+  pow = flip stimes
 
 -- group action
 class Relative a where
@@ -182,7 +193,7 @@ instance Nil Q where
   nil = Q mempty [] (Rev []) []
 
 instance Cons Q where
-  cons a (Q d f r s) = let a' = rel (inv d) a in Q d (a':f) r (a':s)
+  cons a (Q d f r s) = let a' = rel (invert d) a in Q d (a':f) r (a':s)
 
 instance Uncons Q where
   uncons (Q _ [] (Rev []) _) = Empty
@@ -193,7 +204,7 @@ instance Singleton Q where
   singleton a = Q mempty [a] (Rev []) []
 
 instance Snoc Q where
-  snoc (Q d f (Rev r) s) a = exec d f (Rev (rel (inv d) a : r)) s
+  snoc (Q d f (Rev r) s) a = exec d f (Rev (rel (invert d) a : r)) s
 
 exec :: Aff -> [a] -> Rev [] a -> [a] -> Q a
 exec d xs ys (_:t) = Q d xs ys t
