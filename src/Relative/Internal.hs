@@ -29,6 +29,7 @@ module Relative.Internal
   ) where
 
 import Data.Default
+import Data.Semigroup (Semigroup(stimes))
 import GHC.Exts as Exts
 import Group
 import Unaligned.Internal (View(..), Rev(..))
@@ -43,6 +44,10 @@ instance Semigroup Unit where
   One <> x = x
   x <> One = x
   NegativeOne <> NegativeOne = One
+
+  stimes _ One = One
+  stimes e NegativeOne | even e = One
+                       | otherwise = NegativeOne
 
 instance Monoid Unit where
   mempty = One
@@ -60,6 +65,8 @@ utimes NegativeOne = negate
 -- a(bx+c)+d = (ab)x + ac+d
 instance Semigroup Aff where
   Aff a d <> Aff b c = Aff (a<>b) (utimes a c + d)
+  stimes e (Aff One x) = Aff One (toInteger e * x)
+  stimes e (Aff NegativeOne x) = Aff (stimes e NegativeOne) $ if even e then 0 else x
 
 instance Monoid Aff where
   mempty = Aff One 0
