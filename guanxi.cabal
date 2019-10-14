@@ -67,6 +67,7 @@ library
     ghc-prim,
     hashable,
     lens,
+    primitive,
     transformers        >= 0.5.5 && < 0.6,
     unordered-containers
 
@@ -98,6 +99,7 @@ library
     Ref
     Relative.Base
     Relative.Internal
+    SAT
     Sink
     Prompt.Class
     Prompt.Iterator
@@ -109,6 +111,7 @@ library
     Unaligned.Internal
     Unification.Class
     Unique
+    Vec
 
 --------------------------------------------------------
 -- * Tests
