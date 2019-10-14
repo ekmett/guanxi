@@ -1,6 +1,7 @@
 {-# language LambdaCase #-}
 {-# language TypeFamilies #-}
 {-# language RankNTypes #-}
+{-# language CPP #-}
 
 -- |
 -- Copyright :  (c) Edward Kmett 2018
@@ -19,6 +20,7 @@ module Logic.Reflection
   ) where
 
 import Control.Monad
+import Control.Monad.Fail as Fail
 import Control.Monad.Primitive
 import Control.Monad.Trans
 import Control.Applicative
@@ -88,6 +90,12 @@ instance Monad m => Monad (LogicT m) where
   m >>= f = unview $ view m >>= \case
     Empty -> return Empty
     h :&: t -> view $ f h <|> (t >>= f)
+
+#if __GLASGOW_HASKELL__ < 808
+  fail _ = mzero
+#endif
+
+instance Monad m => Fail.MonadFail (LogicT m) where
   fail _ = mzero
 
 instance Monad m => MonadPlus (LogicT m) where
@@ -108,7 +116,9 @@ instance PrimMonad m => PrimMonad (LogicT m) where
   primitive f = lift $ primitive f
 
 observe :: Logic a -> a
-observe = runIdentity . observeT
+observe m = runIdentity $ view m >>= go where
+  go (a :&: _) = return a
+  go _ = return (error "no results")
 
 observeMany :: Int -> Logic a -> [a]
 observeMany n = runIdentity . observeManyT n
@@ -119,10 +129,10 @@ observeAll m = go (runIdentity (view m)) where
   go (a :&: t) = a : observeAll t
   go _ = []
 
-observeT :: Monad m => LogicT m a -> m a
+observeT :: MonadFail m => LogicT m a -> m a
 observeT m = view m >>= go where
   go (a :&: _) = return a
-  go _ = fail "No results"
+  go _ = Fail.fail "No results"
 
 observeManyT :: Monad m => Int -> LogicT m a -> m [a]
 observeManyT n m

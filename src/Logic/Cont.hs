@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ViewPatterns #-}
@@ -18,6 +19,7 @@ module Logic.Cont where
 import Control.Applicative
 import Control.Monad
 import Control.Monad.Error.Class
+import Control.Monad.Fail as Fail
 import Control.Monad.Primitive
 import Control.Monad.Reader
 import Control.Monad.State.Class
@@ -54,6 +56,11 @@ instance Alternative (LogicT f) where
 instance Monad (LogicT m) where
   return = pure
   m >>= f = LogicT $ \sk fk -> runLogicT m (\a fk' -> runLogicT (f a) sk fk') fk
+#if __GLASGOW_HASKELL__ < 808
+  fail _ = LogicT $ \_ fk -> fk
+#endif
+
+instance MonadFail (LogicT m) where
   fail _ = LogicT $ \_ fk -> fk
 
 instance MonadPlus (LogicT m) where
@@ -97,7 +104,7 @@ instance PrimMonad m => PrimMonad (LogicT m) where
   primitive f = lift (primitive f)
 
 observe :: Logic a -> a
-observe = runIdentity . observeT
+observe lt = runIdentity $ runLogicT lt (const . return) (error "No answer.")
 
 observeAll :: Logic a -> [a]
 observeAll = runIdentity . observeAllT
@@ -105,8 +112,8 @@ observeAll = runIdentity . observeAllT
 observeMany :: Int -> Logic a -> [a]
 observeMany i = runIdentity . observeManyT i
 
-observeT :: Monad m => LogicT m a -> m a
-observeT lt = runLogicT lt (const . return) (fail "No answer.")
+observeT :: MonadFail m => LogicT m a -> m a
+observeT lt = runLogicT lt (const . return) (Fail.fail "No answer.")
 
 observeAllT :: Monad m => LogicT m a -> m [a]
 observeAllT m = runLogicT m (fmap . (:)) (return [])
