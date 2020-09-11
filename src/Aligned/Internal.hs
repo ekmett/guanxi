@@ -136,6 +136,8 @@ data Thrist f a b where
   Id   :: Thrist f a a
   (:.) :: f b c -> !(Thrist f a b) -> Thrist f a c
 
+infixr 5 :.
+
 instance a ~ b => Default (Thrist f a b) where
   def = Id
 
