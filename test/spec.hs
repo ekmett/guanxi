@@ -8,6 +8,7 @@ import qualified Spec.FD.Monad
 import qualified Spec.Domain.Interval
 import qualified Spec.Prompt.Iterator
 import qualified Spec.Logic.Reflection
+import qualified Spec.Ref
 import qualified Spec.Unaligned.Base
 
 main :: IO ()
@@ -17,4 +18,5 @@ main = hspecWith defaultConfig {configFormatter = Just progress} $ do
   Spec.FD.Monad.spec
   Spec.Logic.Reflection.spec
   Spec.Prompt.Iterator.spec
+  Spec.Ref.spec
   Spec.Unaligned.Base.spec
