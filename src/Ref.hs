@@ -25,6 +25,7 @@ import Control.Monad
 import Control.Monad.Primitive
 import Data.Primitive.MutVar
 import Data.Type.Coercion
+import Logic.Class
 import Unsafe.Coerce
 
 -- | Explicitly share a computation. This allows us to branch /now/ but perform
@@ -49,19 +50,19 @@ memo ma = do
 
 -- | A 'MonadRef' is a 'Monad' which supports both references (via the 'PrimMonad' class) and
 -- backtracking (via the 'MonadPlus' class).
-type MonadRef m = (PrimMonad m, MonadPlus m)
+type MonadRef m = (PrimMonad m, MonadLogic m)
 
 -- | Morally, this brackets the success continuation with an undo operation to roll back with upon
 -- taking the failure continuation. Users of this function should endeavour to guarantee that the
 -- second argument does in fact undo the effects of the first.
 unwind
-  :: MonadRef m 
+  :: MonadRef m
   => (a -> (b, c))
   -> (c -> m d)
   -> m a
   -> m b
 unwind f mu na = na >>= \a -> case f a of
-  (b, c) -> pure b <|> (mu c *> empty)
+  (b, c) -> pureWithCleanup (b :&&: void (mu c))
 
 -- | Safely-backtracked 'MutVar's. The write operations on a 'Ref' will be reverted
 -- upon a failure due to 'mzero'.

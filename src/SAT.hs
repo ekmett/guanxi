@@ -13,6 +13,7 @@ import Control.Monad.Primitive
 import Data.Bits
 import Data.Primitive.Types
 import Data.Word
+import Logic.Class
 import Vec
 
 newtype Val = Val Word8
@@ -71,7 +72,7 @@ type GivenSAT s = (?sat :: SAT s)
 
 newtype Var s = Var Int
 
-type MonadSAT m = (PrimMonad m, MonadPlus m, GivenSAT (PrimState m))
+type MonadSAT m = (PrimMonad m, MonadLogic m, GivenSAT (PrimState m))
 type ReadMonadSAT m = (PrimMonad m, GivenSAT (PrimState m))
 
 newVar :: MonadSAT m => m (Var (PrimState m))
