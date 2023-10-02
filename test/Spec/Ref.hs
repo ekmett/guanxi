@@ -8,6 +8,7 @@ import Control.Monad
 
 import Logic.Class
 import qualified Logic.Cont as Cont
+import qualified Logic.ContUnwind as ContUnwind
 import qualified Logic.Naive as Naive
 import qualified Logic.Reflection as Reflection
 
@@ -18,6 +19,7 @@ import Test.Hspec (Spec, describe, it, shouldBe)
 spec :: Spec
 spec = do
   specFor "Cont"       Cont.observeAllT
+  specFor "ContUnwind" ContUnwind.observeAllT
   specFor "Naive"      Naive.observeAllT
   specFor "Reflection" Reflection.observeAllT
 

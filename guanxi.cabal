@@ -89,6 +89,7 @@ library
     Log
     Logic.Class
     Logic.Cont
+    Logic.ContUnwind
     Logic.Naive
     Logic.Reflection
     Par.Cont
