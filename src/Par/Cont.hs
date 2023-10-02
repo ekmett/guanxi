@@ -101,7 +101,7 @@ instance
   ( MonadRef m
   , MonadLogic m
   ) => MonadLogic (Par m) where
-  msplit m = fmap parState <$> parState (msplit (statePar m))
+  msplit m = mapViewWithCleanup parState <$> parState (msplit (statePar m))
 
 apply :: (a -> b, a) -> b
 apply (f,x) = f x

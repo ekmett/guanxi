@@ -109,7 +109,7 @@ instance MonadIO m => MonadIO (LogicT m) where
   liftIO = lift . liftIO
 
 instance Monad m => MonadLogic (LogicT m) where
-  msplit = lift . view
+  msplit = lift . fmap (first noCleanup) . view
 
 instance PrimMonad m => PrimMonad (LogicT m) where
   type PrimState (LogicT m) = PrimState m

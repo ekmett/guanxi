@@ -59,7 +59,7 @@ instance MonadTrans LogicT where
   lift m = LogicT (m >>= single)
 
 instance Monad m => MonadLogic (LogicT m) where
-  msplit (LogicT m) = lift m
+  msplit (LogicT m) = first noCleanup <$> lift m
 
 instance PrimMonad m => PrimMonad (LogicT m) where
   type PrimState (LogicT m) = PrimState m
