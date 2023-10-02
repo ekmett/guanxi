@@ -64,7 +64,6 @@ library
     contravariant,
     fingertree,
     groups              >= 0.4 && < 0.5,
-    ghc-prim,
     hashable,
     lens,
     primitive,
@@ -148,6 +147,7 @@ test-suite spec
     Spec.FD.Monad
     Spec.Logic.Reflection
     Spec.Prompt.Iterator
+    Spec.Ref
     Spec.Unaligned.Base
   build-depends:
     hspec >= 2 && < 3
