@@ -64,7 +64,6 @@ library
     contravariant,
     fingertree,
     groups              >= 0.4 && < 0.5,
-    ghc-prim,
     hashable,
     lens,
     primitive,
