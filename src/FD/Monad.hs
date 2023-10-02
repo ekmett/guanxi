@@ -41,7 +41,7 @@ newtype FD s a = FD { runFD :: Cont.Par (FD' s) a } deriving
   )
 
 instance MonadLogic (FD s) where
-  msplit (FD m) = FD $ fmap FD <$> msplit m
+  msplit (FD m) = FD $ mapViewWithCleanup FD <$> msplit m
   interleave = (<|>)
 
 unFD :: FD s a -> LogicT (ST s) a

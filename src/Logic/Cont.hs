@@ -75,7 +75,7 @@ instance MonadIO m => MonadIO (LogicT m) where
 
 instance Monad m => MonadLogic (LogicT m) where
   msplit m = lift $ runLogicT m ssk (return Empty)
-    where ssk a fk = return $ a :&: (lift fk >>= reflect)
+    where ssk a fk = return $ a :&&: pure () :&: (lift fk >>= reflect)
 
 instance (Monad m, Foldable m) => Foldable (LogicT m) where
   foldMap f m = fold $ runLogicT m (fmap . mappend . f) (return mempty)
@@ -124,5 +124,5 @@ observeManyT n m
   | n == 1 = runLogicT m (\a _ -> return [a]) (return [])
   | otherwise = runLogicT (msplit m) sk (return []) where
     sk Empty _ = return []
-    sk (a :&: m') _ = (a :) `liftM` observeManyT (n - 1) m'
+    sk (a :&&: m_bk :&: m') _ = (a :) `liftM` observeManyT (n - 1) (m_bk *> m')
 

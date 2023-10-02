@@ -59,8 +59,16 @@ instance MonadTrans LogicT where
   lift m = LogicT (m >>= single)
 
 instance Monad m => MonadLogic (LogicT m) where
-  msplit (LogicT m) = lift m
+  msplit (LogicT m) = first noCleanup <$> lift m
 
 instance PrimMonad m => PrimMonad (LogicT m) where
   type PrimState (LogicT m) = PrimState m
   primitive f = lift (primitive f)
+
+
+observeAllT :: Monad m => LogicT m a -> m [a]
+observeAllT m = do
+    v <- runLogicT m
+    case v of
+      h :&: t -> (:) h <$> observeAllT t
+      Empty   -> pure []
