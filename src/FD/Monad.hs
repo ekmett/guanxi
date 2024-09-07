@@ -19,6 +19,7 @@
 module FD.Monad where
 
 import Control.Applicative
+import Control.Monad (MonadPlus)
 import Control.Monad.Primitive
 import Control.Monad.Reader
 import Control.Monad.State.Strict

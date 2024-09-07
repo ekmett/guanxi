@@ -112,8 +112,8 @@ observeAll = runIdentity . observeAllT
 observeMany :: Int -> Logic a -> [a]
 observeMany i = runIdentity . observeManyT i
 
-observeT :: MonadFail m => LogicT m a -> m a
-observeT lt = runLogicT lt (const . return) (Fail.fail "No answer.")
+observeT :: Monad m => LogicT m a -> m a
+observeT lt = runLogicT lt (const . return) (error "No answer.")
 
 observeAllT :: Monad m => LogicT m a -> m [a]
 observeAllT m = runLogicT m (fmap . (:)) (return [])
@@ -125,4 +125,3 @@ observeManyT n m
   | otherwise = runLogicT (msplit m) sk (return []) where
     sk Empty _ = return []
     sk (a :&: m') _ = (a :) `liftM` observeManyT (n - 1) m'
-
