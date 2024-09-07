@@ -31,7 +31,7 @@ module Relative.Internal
 import Data.Default
 import Data.Group
 import Data.Semigroup (Semigroup(stimes))
-import GHC.Exts as Exts
+import GHC.Exts as Exts hiding(One)
 import Unaligned.Internal (View(..), Rev(..))
 
 --------------------------------------------------------------------------------
@@ -60,7 +60,7 @@ instance Abelian Unit
 
 data Aff = Aff !Unit !Integer
 
--- group action 
+-- group action
 utimes :: Unit -> Integer -> Integer
 utimes One = id
 utimes NegativeOne = negate
@@ -178,7 +178,7 @@ instance Default (Q a) where
   def = Q mempty [] (Rev []) []
 
 instance (Show a, Relative a) => Show (Q a) where
-  showsPrec d = showsPrec d . Exts.toList 
+  showsPrec d = showsPrec d . Exts.toList
 
 instance Relative a => IsList (Q a) where
   type Item (Q a) = a
@@ -226,11 +226,11 @@ instance Relative a => Relative (Cat a) where
   rel (Aff One 0) as = as
   rel d (C a as) = C (rel d a) (rel d as)
 
-instance Relative a => RelativeSemigroup (Cat a) 
-instance Relative a => RelativeMonoid (Cat a) 
-  
+instance Relative a => RelativeSemigroup (Cat a)
+instance Relative a => RelativeMonoid (Cat a)
+
 instance (Relative a, Show a) => Show (Cat a) where
-  showsPrec d = showsPrec d . Exts.toList 
+  showsPrec d = showsPrec d . Exts.toList
 
 foldMapCat :: (Relative a, Monoid m) => (a -> m) -> Cat a -> m
 foldMapCat _ E = mempty

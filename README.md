@@ -1,7 +1,7 @@
 guanxi
 ======
 
-[![Travis Continuous Integration Status][travis-img]][travis]
+[![haskell ci](https://github.com/ekmett/guanxi/actions/workflows/ci.yml/badge.svg)](https://github.com/ekmett/guanxi/actions/workflows/ci.yml)
 
 An exploration of relational programming in Haskell.
 
@@ -34,5 +34,3 @@ Please feel free to contact me through github or on the `#haskell` IRC channel o
 
  [license-apache]: http://www.apache.org/licenses/LICENSE-2.0
  [license-bsd]: https://opensource.org/licenses/BSD-2-Clause
- [travis]: http://travis-ci.org/ekmett/guanxi
- [travis-img]: https://secure.travis-ci.org/ekmett/guanxi.png?branch=master

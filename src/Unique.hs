@@ -16,14 +16,14 @@ module Unique
 
 import Control.Monad.Primitive
 import Data.Hashable
-import GHC.Prim
+import GHC.Exts
 import GHC.Types
 
 data Unique s = Unique !Int (MutableByteArray# s)
 type UniqueM m = Unique (PrimState m)
 
 instance Eq (Unique s) where
-  Unique _ p == Unique _ q = isTrue# (sameMutableByteArray# p q)
+  Unique _ p == Unique _ q = isTrue# (GHC.Exts.sameMutableByteArray# p q)
 
 instance Hashable (Unique s) where
   hash (Unique i _) = i
