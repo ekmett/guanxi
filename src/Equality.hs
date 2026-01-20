@@ -82,15 +82,21 @@ is m n = do
   case compare mrank nrank of
     LT -> do
       writeRef mroot $ Child nroot
-      for_ notm $ \i -> modifyRef' i $ \(Root irank noti) -> Root irank $ HS.insert nroot $ HS.delete mroot noti
+      for_ notm $ \i -> modifyRef' i $ \content -> case content of
+        Root irank noti -> Root irank $ HS.insert nroot $ HS.delete mroot noti
+        Child _ -> content
       writeRef nroot $ Root nrank $ notm <> notn
     GT -> do
       writeRef nroot $ Child mroot
-      for_ notn $ \i -> modifyRef' i $ \(Root irank noti) -> Root irank $ HS.insert mroot $ HS.delete nroot noti
+      for_ notn $ \i -> modifyRef' i $ \content -> case content of
+        Root irank noti -> Root irank $ HS.insert mroot $ HS.delete nroot noti
+        Child _ -> content
       writeRef mroot $ Root mrank $ notm <> notm
     EQ -> do
       writeRef mroot $ Child nroot
-      for_ notm $ \i -> modifyRef' i $ \(Root irank noti) -> Root irank $ HS.insert nroot $ HS.delete mroot noti
+      for_ notm $ \i -> modifyRef' i $ \content -> case content of
+        Root irank noti -> Root irank $ HS.insert nroot $ HS.delete mroot noti
+        Child _ -> content
       writeRef nroot $ Root (nrank+1) $ notm <> notn
 
 isn't :: MonadRef m => TermM m -> TermM m -> m ()

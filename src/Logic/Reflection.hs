@@ -2,6 +2,7 @@
 {-# language TypeFamilies #-}
 {-# language RankNTypes #-}
 {-# language CPP #-}
+{-# language TypeOperators #-}
 
 -- |
 -- Copyright :  (c) Edward Kmett 2018

@@ -5,6 +5,7 @@
 {-# language MultiParamTypeClasses #-}
 {-# language TypeFamilies #-}
 {-# language UndecidableInstances #-}
+{-# language TypeOperators #-}
 
 -- |
 -- Copyright :  (c) Edward Kmett 2018

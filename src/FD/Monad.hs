@@ -1,3 +1,4 @@
+{-# language CPP #-}
 {-# language GeneralizedNewtypeDeriving #-}
 {-# language RankNTypes #-}
 {-# language UndecidableInstances #-}
@@ -19,7 +20,9 @@
 module FD.Monad where
 
 import Control.Applicative
+#if MIN_VERSION_base(4,20,0)
 import Control.Monad (MonadPlus)
+#endif
 import Control.Monad.Primitive
 import Control.Monad.Reader
 import Control.Monad.State.Strict

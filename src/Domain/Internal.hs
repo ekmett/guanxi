@@ -216,12 +216,14 @@ onLo (Interval n c) f = do
     Just (rel nd -> z) -> f z -- done, nothing will ever improve this, nothing to watch
     Nothing -> case nd of
       Aff One _ -> do
-        let f' z e = findRef e >>= \ (j, R { rlo = Right k }, _) ->
-              f (rel (z<>j) k)
+        let f' z e = findRef e >>= \ (j, r', _) -> case rlo r' of
+              Right k -> f (rel (z<>j) k)
+              Left _ -> pure ()
         writeRef croot $ Root r { rlop = rlop r `R.snoc` P nd f' }
       Aff NegativeOne _ -> do
-        let f' z e = findRef e >>= \ (j, R { rhi = Right k }, _) ->
-              f (rel (z<>j) k)
+        let f' z e = findRef e >>= \ (j, r', _) -> case rhi r' of
+              Right k -> f (rel (z<>j) k)
+              Left _ -> pure ()
         writeRef croot $ Root r { rhip = rhip r `R.snoc` P nd f' }
 
 onHi i f = onLo (neg i) (f . negate)

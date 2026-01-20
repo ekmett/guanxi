@@ -4,6 +4,7 @@
 {-# language ScopedTypeVariables #-}
 {-# language PatternSynonyms #-}
 {-# language ViewPatterns #-}
+{-# language TypeOperators #-}
 
 -- |
 -- Copyright :  (c) Edward Kmett 2018

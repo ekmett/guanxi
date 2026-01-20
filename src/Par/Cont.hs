@@ -1,3 +1,4 @@
+{-# language CPP #-}
 {-# language TemplateHaskell #-}
 {-# language LambdaCase #-}
 {-# language StandaloneDeriving #-}
@@ -25,18 +26,36 @@ module Par.Cont
   , parState
   ) where
 
+#if MIN_VERSION_base(4,13,0)
+import Control.Monad
+#else
 import Control.Monad hiding (fail)
-import Control.Monad.Cont hiding (fail) -- fix this API!
-import Control.Monad.Fail
+#endif
+#if MIN_VERSION_mtl(2,3,1)
+import Control.Monad.Cont
+#else
+import Control.Monad.Cont hiding (fail) -- pre-2.3.1 re-exported Control.Monad fail
+#endif
+#if !MIN_VERSION_base(4,13,0)
+import Control.Monad.Fail (MonadFail)
+#endif
 import Control.Monad.Primitive
 import Control.Monad.Reader.Class
-import Control.Monad.State.Strict hiding (fail) -- fix this API!
+#if MIN_VERSION_mtl(2,3,1)
+import Control.Monad.State.Strict
+#else
+import Control.Monad.State.Strict hiding (fail) -- pre-2.3.1 re-exported Control.Monad fail
+#endif
 import Control.Applicative
 import Control.Lens hiding (Empty, snoc, uncons)
 import Data.Default
 import Logic.Class
 import Par.Class
+#if MIN_VERSION_base(4,13,0)
+import Prelude
+#else
 import Prelude hiding (fail)
+#endif
 import Ref
 import Unaligned.Base
 

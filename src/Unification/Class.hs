@@ -60,7 +60,7 @@ instance GUnified U1 where
   gmerge _ _ _ = pure U1
 
 instance GUnified V1 where
-  gmerge _ !v _ = case v of {}
+  gmerge _ v _ = case v of {}
 
 instance (GUnified f, GUnified g) => GUnified (f :*: g) where
   gmerge f (a :*: b) (c :*: d) = (:*:) <$> gmerge f a c <*> gmerge f b d

@@ -1,5 +1,6 @@
 {-# language OverloadedStrings #-}
 {-# language TypeFamilies #-}
+{-# language TypeOperators #-}
 
 module Main where
 

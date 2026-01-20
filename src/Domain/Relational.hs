@@ -52,7 +52,7 @@ union :: (MonadRef m, Relational m a) => RelM m a -> RelM m a -> m ()
 union m n = do
   (mpos, msize, ma, mroot) <- findEx m
   (npos, nsize, na, nroot) <- findEx n
-  unless (nroot == mroot) $if msize <= nsize
+  unless (nroot == mroot) $ if msize <= nsize
     then do
       writeRef mroot $ Child (nsize + mpos) nroot
       na' <- disjointUnion nsize na msize ma

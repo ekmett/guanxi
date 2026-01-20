@@ -19,7 +19,9 @@ module Logic.Cont where
 import Control.Applicative
 import Control.Monad
 import Control.Monad.Error.Class
-import Control.Monad.Fail as Fail
+#if !MIN_VERSION_base(4,13,0)
+import Control.Monad.Fail (MonadFail)
+#endif
 import Control.Monad.Primitive
 import Control.Monad.Reader
 import Control.Monad.State.Class

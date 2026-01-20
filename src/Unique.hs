@@ -17,7 +17,6 @@ module Unique
 import Control.Monad.Primitive
 import Data.Hashable
 import GHC.Exts
-import GHC.Types
 
 data Unique s = Unique !Int (MutableByteArray# s)
 type UniqueM m = Unique (PrimState m)

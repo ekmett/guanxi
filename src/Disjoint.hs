@@ -14,7 +14,6 @@
 -- a theory of equality without disequality constraints
 module Disjoint where
 
-import Control.Applicative (liftA2)
 import Control.Monad.Primitive
 import Ref
 
