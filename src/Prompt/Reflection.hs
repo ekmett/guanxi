@@ -106,7 +106,7 @@ instance MonadTrans CC where
   {-# inlineable lift #-}
 
 instance PrimMonad m => MonadCont (CC m) where
-  callCC = callcc
+  callCC f = callcc (\x -> f x)
   {-# inline callCC #-}
 
 instance PrimMonad m => MonadPrompt (CC m) where

@@ -64,3 +64,11 @@ instance Monad m => MonadLogic (LogicT m) where
 instance PrimMonad m => PrimMonad (LogicT m) where
   type PrimState (LogicT m) = PrimState m
   primitive f = lift (primitive f)
+
+
+observeAllT :: Monad m => LogicT m a -> m [a]
+observeAllT m = do
+    v <- runLogicT m
+    case v of
+      h :&: t -> (:) h <$> observeAllT t
+      Empty   -> pure []
